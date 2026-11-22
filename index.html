@@ -1,0 +1,2644 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CH3711 - 3D Virtual Process Control Laboratory | APEC</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js & OrbitControls (r128) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- Chart.js for Interactive Process Graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- jsPDF & html2canvas for High-Quality PDF Record Generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 9999px;
+        }
+
+        .dark ::-webkit-scrollbar-thumb {
+            background: #475569;
+        }
+
+        #three-canvas-wrapper canvas {
+            display: block;
+            width: 100% !important;
+            height: 100% !important;
+            outline: none;
+            cursor: grab;
+        }
+
+        #three-canvas-wrapper canvas:active {
+            cursor: grabbing;
+        }
+
+        /* Floating 3D HTML Callout Badges */
+        .callout-3d {
+            position: absolute;
+            transform: translate(-50%, -100%);
+            pointer-events: none;
+            transition: opacity 0.15s ease;
+            z-index: 15;
+        }
+
+        #pdf-render-container {
+            position: fixed;
+            left: -9999px;
+            top: 0;
+            width: 820px;
+            background: #ffffff;
+            color: #111827;
+            padding: 36px;
+            font-family: 'Inter', sans-serif;
+            z-index: -1;
+        }
+    </style>
+</head>
+
+<body
+    class="bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100 transition-colors duration-200 antialiased">
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- Top Navigation Bar -->
+    <header
+        class="sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-b border-slate-200 dark:border-slate-800 shadow-sm">
+        <div class="flex items-center justify-between px-4 py-3 lg:px-6">
+            <div class="flex items-center gap-3">
+                <button id="mobile-menu-btn"
+                    class="lg:hidden p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">
+                    <i class="fas fa-bars text-lg"></i>
+                </button>
+                <div class="flex items-center gap-3">
+                    <div
+                        class="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-600 to-indigo-700 flex items-center justify-center text-white font-bold shadow-md">
+                        <i class="fas fa-cube text-lg"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span
+                                class="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-300">CH3711
+                                • 3D LAB</span>
+                            <h1
+                                class="text-base sm:text-lg font-bold tracking-tight text-slate-900 dark:text-white leading-tight">
+                                3D Virtual Process Control Lab</h1>
+                        </div>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">Adhiparasakthi Engineering
+                            College • Dept. of Chemical Engineering (Reg. 2021)</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Controls -->
+            <div class="flex items-center gap-2 sm:gap-3">
+                <button onclick="openStudentModal()"
+                    class="hidden md:flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition">
+                    <i class="fas fa-user-graduate text-sky-600 dark:text-sky-400"></i>
+                    <span id="header-student-label">Set Student Info</span>
+                </button>
+                <button id="theme-toggle" title="Toggle Dark/Light Theme"
+                    class="p-2 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                    <i id="theme-icon" class="fas fa-moon"></i>
+                </button>
+                <button id="download-pdf-btn" onclick="generateLabPDF()"
+                    class="flex items-center gap-2 px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-md shadow-emerald-600/20 transition transform active:scale-95">
+                    <i class="fas fa-file-pdf"></i>
+                    <span>Download Lab Record PDF</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Layout Container -->
+    <div class="flex min-h-[calc(100vh-65px)]">
+
+        <!-- Sidebar Navigation -->
+        <aside id="sidebar"
+            class="fixed inset-y-0 left-0 z-40 w-80 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 transform -translate-x-full lg:translate-x-0 lg:static lg:block transition-transform duration-200 ease-in-out flex flex-col pt-16 lg:pt-0">
+            <div class="p-4 border-b border-slate-200 dark:border-slate-800">
+                <div class="relative">
+                    <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                    <input type="text" id="exp-search" placeholder="Search 15 3D experiments or Viva..."
+                        class="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-sky-500 focus:bg-white dark:focus:bg-slate-900 outline-none transition">
+                </div>
+            </div>
+
+            <nav id="sidebar-nav" class="flex-1 overflow-y-auto p-3 space-y-1"></nav>
+
+            <div
+                class="p-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 text-[11px] text-slate-500 dark:text-slate-400">
+                <div class="flex items-center justify-between">
+                    <span>Interactive WebGL 3D Rigs</span>
+                    <span class="font-semibold text-sky-600 dark:text-sky-400">15 Expts + 40 Viva</span>
+                </div>
+            </div>
+        </aside>
+
+        <div id="sidebar-backdrop" class="fixed inset-0 bg-slate-900/50 z-30 hidden lg:hidden"
+            onclick="toggleMobileMenu()"></div>
+
+        <!-- Main Workspace Content -->
+        <main class="flex-1 p-4 sm:p-6 lg:p-8 max-w-full overflow-x-hidden">
+            <div id="workspace" class="max-w-7xl mx-auto space-y-6"></div>
+        </main>
+    </div>
+
+    <!-- Student Details Modal -->
+    <div id="student-modal"
+        class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+        <div
+            class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <i class="fas fa-id-card text-sky-600"></i> Lab Record Student Details
+                </h3>
+                <button onclick="closeStudentModal()"
+                    class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">These details will appear on your downloadable
+                APEC Lab Record PDF.</p>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-semibold mb-1">Student Name</label>
+                    <input type="text" id="input-student-name" placeholder="e.g., ARUN KUMAR S"
+                        class="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 outline-none focus:border-sky-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold mb-1">Register Number</label>
+                    <input type="text" id="input-reg-no" placeholder="e.g., 420421203001"
+                        class="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 outline-none focus:border-sky-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold mb-1">Experiment Date</label>
+                    <input type="date" id="input-exp-date"
+                        class="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 outline-none focus:border-sky-500">
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end gap-2">
+                <button onclick="closeStudentModal()"
+                    class="px-4 py-2 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800">Cancel</button>
+                <button onclick="saveStudentInfo()"
+                    class="px-4 py-2 text-xs font-semibold rounded-xl bg-sky-600 hover:bg-sky-500 text-white">Save
+                    Details</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Off-Screen Container for PDF Generation -->
+    <div id="pdf-render-container"></div>
+
+    <script>
+        // =========================================================================
+        // 1. CURRICULUM DATA (ALL 15 EXPERIMENTS + 40 VIVA QUESTIONS)
+        // =========================================================================
+        const EXPERIMENTS = [
+            {
+                id: 'exp1', no: 'Ex. No. 01', title: 'Response of First Order System',
+                subtitle: '3D Cylindrical Liquid Level Tank, Rotameter & 63.2% Time Constant',
+                category: 'Open Loop Dynamics', icon: 'fa-water',
+                aim: 'To verify the dynamic response of a First Order System (Liquid Level System) for a step change in inflow rate and to calculate the time constant (τ) and resistance (R) of the process tank.',
+                apparatus: ['First Order Liquid Level Process Tank (Cylindrical)', 'Water Reservoir & Centrifugal Pump', 'Calibrated Rotameter (0–500 LPH)', 'Inlet & Outlet Hand Control Valves', 'Graduated Level Scale & Stopwatch'],
+                procedure: [
+                    'Switch ON the pump and set initial inflow of water to X LPH in the rotameter (click the 3D inlet valve handwheel or use the console slider).',
+                    'Wait until the liquid level in the 3D process tank reaches steady state (h₀), where inflow equals outflow.',
+                    'Suddenly increase the inflow rate to Y LPH (step input) and observe the live rising liquid level h(t) in the 3D tank.',
+                    'Record tank level vs time until new steady state (h∞) is achieved and compute τ = R × C using the 63.2% method.'
+                ]
+            },
+            {
+                id: 'exp2', no: 'Ex. No. 02', title: 'Response of Non-Interacting Level System',
+                subtitle: '3D Cascaded Two-Tank Rig Without Back-Pressure Coupling',
+                category: 'Open Loop Dynamics', icon: 'fa-layer-group',
+                aim: 'To verify the step response of a Non-Interacting two-tank liquid level system and determine the time constants (τ₁, τ₂) and resistances (R₁, R₂) of each tank.',
+                apparatus: ['Two Cylindrical Process Tanks in Series (Non-Interacting)', 'Water Sump & Feed Pump', 'Rotameter (0–500 LPH) & Flow Valves', 'Level Scales on Tank 1 & Tank 2'],
+                procedure: [
+                    'Set steady inflow rate X LPH into the upper Tank 1. Allow Tank 1 and lower Tank 2 to reach initial steady levels h₁₀ and h₂₀.',
+                    'Introduce a sudden step increase in inflow rate to Y LPH by clicking the 3D inlet valve or adjusting the slider.',
+                    'Observe Tank 1 discharging freely into Tank 2 in 3D and note the sigmoidal S-shaped response of h₂(t).'
+                ]
+            },
+            {
+                id: 'exp3', no: 'Ex. No. 03', title: 'Response of Interacting Level System',
+                subtitle: '3D Bottom-Coupled Two-Tank Rig with Inter-Tank Resistance R₁',
+                category: 'Open Loop Dynamics', icon: 'fa-code-branch',
+                aim: 'To verify the step response of an Interacting two-tank level system and calculate the effective time constants and resistances of each tank.',
+                apparatus: ['Two Process Tanks Connected at Bottom via Interacting Valve', 'Feed Pump, Sump Tank & Rotameter', 'Discharge Valve & Level Scales'],
+                procedure: [
+                    'Open the bottom interconnecting valve between Tank 1 and Tank 2 and set initial flow X LPH.',
+                    'Wait for steady-state levels h₁₀ and h₂₀ (h₁₀ > h₂₀), then apply a step increase to Y LPH.',
+                    'Observe how Tank 2 loads Tank 1 through the bottom connecting pipe (q₁₂ = (h₁ − h₂)/R₁).'
+                ]
+            },
+            {
+                id: 'exp4', no: 'Ex. No. 04', title: 'Closed Loop Study on a Level System',
+                subtitle: '3D Level Tank, LT (4–20 mA), DAC, I/P Converter & Pneumatic Valve',
+                category: 'Closed Loop Calibration', icon: 'fa-sliders',
+                aim: 'To study the closed-loop hardware components on a level system: Level Transmitter (4–20 mA), Digital-to-Analog Converter (DAC), I/P Converter (3–15 psi), and Pneumatic Control Valve.',
+                apparatus: ['Level Control Analyzer 3D Station & PC', 'Air Compressor & Regulator (20 psi)', 'Level Transmitter, I/P Converter & Pneumatic Control Valve'],
+                procedure: [
+                    'Set air supply regulator pressure to 20 psi and invoke Manual Mode.',
+                    'Vary tank level in steps (0–30 cm) and observe Level Transmitter current output (4–20 mA).',
+                    'Step Manual Mode controller output across 0%, 25%, 50%, 75%, and 100% and watch the 3D pneumatic control valve stem move linearly.'
+                ]
+            },
+            {
+                id: 'exp5', no: 'Ex. No. 05', title: 'Closed Loop Study on a Flow System',
+                subtitle: '3D Orifice Plate, Differential Pressure Transmitter & Valve Loop',
+                category: 'Closed Loop Calibration', icon: 'fa-tachometer-alt',
+                aim: 'To study the closed loop components on a flow system, verify square-root non-linearity of the Differential Pressure Flow Transmitter, and calibrate DAC, I/P converter, and control valve.',
+                apparatus: ['Flow Control Analyzer 3D Pipeline with Orifice Plate & DPT', 'Air Compressor, Regulator (20 psi) & Pneumatic Control Valve'],
+                procedure: [
+                    'Vary pipeline flow rate across 0 to 500 LPH and measure the raw non-linear transmitter current X (mA).',
+                    'Compute linearized transmitter output I_lin = 4 + 4√(X − 4) mA and compare with raw curve.',
+                    'Step Manual Mode % (0–100%) and observe DAC (mA), I/P (psi), and 3D valve stem lift (%).'
+                ]
+            },
+            {
+                id: 'exp6', no: 'Ex. No. 06', title: 'Closed Loop Study on a Pressure System',
+                subtitle: '3D Pressurized Vessel, PT Sensor, Compressor & Pneumatic Valve',
+                category: 'Closed Loop Calibration', icon: 'fa-compress-arrows-alt',
+                aim: 'To study the closed loop control components on a pressure system: Pressure Transmitter, DAC, I/P converter, and control valve position.',
+                apparatus: ['Pressure Control Analyzer 3D Vessel', 'Air Compressor, Regulator (20 psi), Pressure Gauge & Control Valve'],
+                procedure: [
+                    'Vary vessel pressure from 0 to 50 psi in steps and record Pressure Transmitter output X (mA) and linearized scale.',
+                    'In Manual Mode, step controller output through 0%, 25%, 50%, 75%, and 100% and observe 3D actuator motion.'
+                ]
+            },
+            {
+                id: 'exp7', no: 'Ex. No. 07', title: 'Tuning of a Level System',
+                subtitle: '3D Closed-Loop Level Rig: ON/OFF, P, PI, PD & PID Controller Modes',
+                category: 'Controller Tuning', icon: 'fa-wave-square',
+                aim: 'To study and compare the closed-loop transient performance, offset, and settling time of ON-OFF, P, PI, PD, and PID controllers on a Liquid Level System (Set Point = 15 cm).',
+                apparatus: ['Computerized Level Process Control 3D Trainer', 'Air Compressor & Regulator (20 psi)', 'Level Transmitter, I/P Converter & Pneumatic Control Valve'],
+                procedure: [
+                    'Set Set Point (SP) = 15 cm. Test ON/OFF mode (Gap = 5 cm), P (Kp = 2), PI (Kp = 2, Ki = 0.01), PD (Kp = 2, Kd = 0.1), and PID (Kp = 2, Ki = 0.01, Kd = 0.1).',
+                    'Watch the 3D pneumatic control valve stem modulate automatically in real time as the tank level approaches 15 cm.'
+                ]
+            },
+            {
+                id: 'exp8', no: 'Ex. No. 08', title: 'Tuning of a Flow System',
+                subtitle: '3D Pipeline Flow Rig: ON/OFF, P, PI, PD & PID Controller Tuning',
+                category: 'Controller Tuning', icon: 'fa-wind',
+                aim: 'To evaluate the dynamic performance of ON-OFF, P, PI, PD, and PID controller modes on a Flow Process System (Set Point = 250 LPH).',
+                apparatus: ['Computerized Flow Process Control 3D Trainer', 'Orifice Plate with DPT & Pneumatic Control Valve'],
+                procedure: [
+                    'Set Flow Set Point = 250 LPH. Run ON/OFF (Gap = 100 LPH), P (Kp = 2), PI (Kp = 2, Ki = 0.01), PD (Kp = 2, Kd = 0.1), and PID.',
+                    'Observe the 3D rotameter float and control valve stem tracking the flow set point.'
+                ]
+            },
+            {
+                id: 'exp9', no: 'Ex. No. 09', title: 'Tuning of a Thermal System',
+                subtitle: '3D Heated Process Vessel with Glowing Coil: ON/OFF, P, PI, PD & PID',
+                category: 'Controller Tuning', icon: 'fa-temperature-high',
+                aim: 'To study the performance of ON-OFF, P, PI, PD, and PID controllers on a Thermal Process System (Set Point = 50 °C).',
+                apparatus: ['Computerized Temperature Control 3D Trainer with Heating Coil', 'Thyristor Power Controller & RTD (Pt-100) Sensor'],
+                procedure: [
+                    'Set Set Point = 50 °C. Test ON/OFF (Gap = 10 °C), P (Kp = 3), PI (Kp = 3, Ki = 0.01), PD (Kp = 3, Kd = 0.1), and PID.',
+                    'Observe the 3D immersion heater coil glowing intensity dynamically changing with controller power output.'
+                ]
+            },
+            {
+                id: 'exp10', no: 'Ex. No. 10', title: 'Tuning of a Pressure System',
+                subtitle: '3D Pneumatic Pressure Tank & Dial Gauge: ON/OFF, P, PI, PD & PID',
+                category: 'Controller Tuning', icon: 'fa-gauge-high',
+                aim: 'To study the response of ON-OFF, P, PI, PD, and PID controllers on a Pressure Process System (Set Point = 35 Psi).',
+                apparatus: ['Computerized Pressure Process Control 3D Trainer', 'Compressed Air Supply, Regulator, Pressure Vessel & PT Sensor'],
+                procedure: [
+                    'Set Set Point = 35 Psi. Run ON/OFF (Gap = 20 Psi), P (Kp = 2), PI (Kp = 2, Ki = 0.01), PD (Kp = 2, Kd = 0.1), and PID (Kp = 3, Ki = 0.01, Kd = 0.1).',
+                    'Watch the 3D Bourdon pressure gauge needle and pneumatic control valve respond in real time.'
+                ]
+            },
+            {
+                id: 'exp11', no: 'Ex. No. 11', title: 'Flow Co-efficient of Control Valves',
+                subtitle: '3D Equal Percentage Pneumatic Control Valve & Rangeability',
+                category: 'Final Control Elements', icon: 'fa-faucet',
+                aim: 'To study the flow characteristics of an Equal Percentage Control Valve and determine its flow coefficient / Rangeability (m_max / m_min).',
+                apparatus: ['Control Valve Characteristics 3D Test Rig', 'Air Compressor & Regulator (3–15 psi)', 'Equal Percentage Control Valve & Rotameter'],
+                procedure: [
+                    'Adjust air regulator pressure across 15, 12, 9, 6, and 3 psi (or click the 3D valve actuator) and record stem opening (%) and flow rate (LPH).',
+                    'Plot % Flow Rate vs % Stem Opening and compute Rangeability = m_max / m_min.'
+                ]
+            },
+            {
+                id: 'exp12', no: 'Ex. No. 12', title: 'Characteristics of Different Control Valves',
+                subtitle: '3D Parallel Manifold: Quick Opening, Linear & Equal % Valves (HV1–HV7)',
+                category: 'Final Control Elements', icon: 'fa-chart-line',
+                aim: 'To study and compare the inherent flow characteristics and valve gain of Quick Opening (ON-OFF), Linear, and Equal Percentage control valves.',
+                apparatus: ['Multi-Valve 3D Manifold Rig (ON-OFF, Linear, Equal % Valves)', 'Hand Valves HV1–HV7, Rotameter, Pressure Gauges & Air Regulator'],
+                procedure: [
+                    'Select each valve branch (Quick Opening, Linear, Equal Percentage) — notice the 3D isolation hand valves HV1–HV7 automatically switch branches.',
+                    'Vary regulator pressure (3–15 psi) and compare % Cv curves and Valve Gain.'
+                ]
+            },
+            {
+                id: 'exp13', no: 'Ex. No. 13', title: 'Response of Second Order System',
+                subtitle: '3D Glass U-Tube Manometer Step Response & Mercury Oscillation',
+                category: 'Open Loop Dynamics', icon: 'fa-wave-square',
+                aim: 'To study the under-damped dynamic response of a U-Tube Manometer following a step pressure change, compute overshoot, decay ratio, rise time, and response time, and establish its transfer function.',
+                apparatus: ['3D U-Tube Manometer Experimental Setup with Pressure Transmitter', 'Hand Pressure Pump & Release Valve', 'Data Acquisition System & PC'],
+                procedure: [
+                    'Apply a sudden step pressure input to Leg 1 using the hand pump (click the 3D pump bulb or adjust parameters).',
+                    'Watch the 3D manometric fluid column oscillate between Leg 1 and Leg 2 until settling at steady height H(s).',
+                    'Evaluate τ, damping coefficient ζ, Overshoot, Decay Ratio, Rise Time t_r, and Response Time t_s.'
+                ]
+            },
+            {
+                id: 'exp14', no: 'Ex. No. 14', title: 'Closed Loop Response of Cascade Control',
+                subtitle: '3D Dual-Loop Master Level (LC) + Slave Flow (FC) Trainer',
+                category: 'Advanced Process Control', icon: 'fa-project-diagram',
+                aim: 'To study the closed-loop performance of a Cascade Control System where Primary Level Controller (LC) manipulates the set point of Secondary Flow Controller (FC) to reject supply disturbances rapidly.',
+                apparatus: ['Cascade Control 3D Trainer Unit (Tank, Orifice DPT, RF Level Tx)', 'I/P Converter, Pneumatic Control Valve & Compressor'],
+                procedure: [
+                    'Select Cascade Mode (PID vs ON-OFF), set Primary Level SP, and inject a supply pressure disturbance surge.',
+                    'Observe the 3D inner flow control valve reacting immediately to reject the disturbance before tank level deviates.'
+                ]
+            },
+            {
+                id: 'exp15', no: 'Ex. No. 15', title: 'Closed Loop Study on a Thermal System',
+                subtitle: '3D Thermal Station, RTD Transmitter (4–20 mA) & Valve Calibration',
+                category: 'Closed Loop Calibration', icon: 'fa-thermometer-half',
+                aim: 'To study the closed loop control elements on a thermal system: Temperature Transmitter (4–20 mA), DAC, I/P Converter, and Control Valve position.',
+                apparatus: ['Thermal Control Analyzer 3D Station & Heating Vessel', 'Air Compressor, Regulator (20 psi), RTD Sensor & Control Valve'],
+                procedure: [
+                    'Vary tank temperature from 30 °C to 90 °C and record Temperature Transmitter current output (mA) and linearized scale.',
+                    'Step Manual Mode output across 0% to 100% and verify DAC, I/P, and 3D valve linearity.'
+                ]
+            },
+            {
+                id: 'viva', no: 'Viva Bank', title: 'Viva Questions & Answers (40 Q&A)',
+                subtitle: 'Complete Examination Oral Reference from CH3711 Lab Manual',
+                category: 'Exam Preparation', icon: 'fa-book-open',
+                aim: 'Comprehensive oral examination preparation covering all 40 official viva questions from the CH3711 Process Control Lab Manual.',
+                apparatus: ['CH3711 Regulation 2021 Lab Manual Reference'],
+                procedure: ['Use the search bar below to filter all 40 official Viva questions by keyword.']
+            }
+        ];
+
+        const VIVA_QUESTIONS = [
+            { q: "1. Define open loop system.", a: "A system which generates output signals depending on the integrity of the system to execute them, without feedback for monitoring or comparison purposes. Open-loop systems ignore error signals and operate on the assumption that no errors occur." },
+            { q: "2. What is a first order system?", a: "Any physical system for which the relation between Laplace transforms of input and output deviation variables is of the form Y(s)/X(s) = 1 / (τs + 1) is called a first order system, where 'τ' is the time constant of the system with units of time." },
+            { q: "3. What are the assumptions used in developing the transfer function for a thermometer?", a: "(1) All resistance to heat transfer resides in the film surrounding the bulb (glass & mercury resistance neglected). (2) All thermal capacity is in the mercury with uniform temperature throughout. (3) The glass wall does not expand or contract during transient response." },
+            { q: "4. List different forcing functions.", a: "Step function: X(t) = A·u(t); Impulse function: X(t) = A·δ(t); Sinusoidal input: X(t) = A·sin(ωt)." },
+            { q: "5. Define resistance and capacitance of a first order system.", a: "Resistance is defined as the ratio of the change in driving force to the change in flow. Capacitance is defined as the ratio of the change in storage to the change in driving force." },
+            { q: "6. Write the units of resistance and capacitance in a thermometer.", a: "Resistance = 1/(hA) has SI unit [K·s/kJ]. Capacitance = m·Cp has SI unit [kJ/K]." },
+            { q: "7. Write the variables in second order transfer function.", a: "In Y(s)/X(s) = 1 / [τ²s² + 2ζτs + 1], 'τ' is the characteristic time (units of time) and 'ζ' is the dimensionless damping coefficient." },
+            { q: "8. Define critically damped system and write the transfer function for the same.", a: "If damping coefficient ζ = 1, the second-order system is critically damped, providing the most rapid approach to steady state without oscillation: Y(s)/X(s) = 1 / (τs + 1)²." },
+            { q: "9. 'Two first order systems connected in series is an over-damped second order system' – Justify.", a: "Its transfer function is Y(s)/X(s) = 1 / [(τ₁s + 1)(τ₂s + 1)] = 1 / [τ²s² + 2ζτs + 1]. Since roots s₁ and s₂ are real and distinct (for τ₁ ≠ τ₂), ζ = (τ₁+τ₂)/(2√(τ₁τ₂)) > 1, producing a non-oscillatory overdamped response." },
+            { q: "10. What is loading in an interacting system?", a: "The term 'Interacting' is referred to as 'Loading' because the second tank's liquid head affects the flow out of the first tank. This coupling changes the effective time constants and makes the response more sluggish." },
+            { q: "11. What is overshoot?", a: "Overshoot is a measure of how much the under-damped step response exceeds its ultimate steady-state value: Overshoot = exp[−πζ / √(1 − ζ²)]." },
+            { q: "12. Define decay ratio.", a: "Decay ratio is the ratio of the sizes of successive peaks in an under-damped step response: Decay Ratio = exp[−2πζ / √(1 − ζ²)] = (Overshoot)²." },
+            { q: "13. Define rise time and response time.", a: "Rise time (t_r) is the time required for the under-damped response to first reach its ultimate value. Response time (t_s) is the time required for the response to enter and remain within ±5% of its ultimate value." },
+            { q: "14. What are the components of a feedback control system?", a: "(i) Process, (ii) Measuring element (Sensor/Transmitter), (iii) Controller, and (iv) Final control element (Control Valve)." },
+            { q: "15. Explain negative and positive feedback systems.", a: "In Negative Feedback, the error signal is the difference between set point and measured variable (e = SP − PV), driving the system to reduce error. In Positive Feedback, the signals are added, making the system inherently unstable." },
+            { q: "16. Why is negative feedback invariably preferred in closed loop systems?", a: "Negative feedback ensures corrective action always opposes error deviation to maintain stability, whereas positive feedback reinforces error and causes runaway instability." },
+            { q: "17. Write the closed loop equation for a feedback control system.", a: "C(s)/R(s) = G(s) / [1 + G(s)H(s)], where G(s) = G_c(s)·G_v(s)·G_p(s) is the forward path transfer function and H(s) is the measuring element transfer function." },
+            { q: "18. Define load and set-point variable.", a: "Load variable (U) represents external disturbances entering the process (analyzed with R = 0). Set-point variable (R) is the desired target value of the controlled variable (analyzed with U = 0)." },
+            { q: "19. Distinguish between servo and regulator problem.", a: "Servo problem studies transient response when Set Point R changes at constant load (dU/dt = 0). Regulator problem studies response when Load U changes at constant Set Point (dR/dt = 0)." },
+            { q: "20. Explain the mechanism of a pneumatic control valve.", a: "A pneumatic control valve uses a spring-and-diaphragm actuator. Controller air pressure (3–15 psi) acts on the diaphragm against spring force, positioning the valve plug linearly to regulate fluid flow." },
+            { q: "21. Distinguish quick opening, linear, and equal percentage valve characteristics.", a: "Linear valve has constant sensitivity dm/dx = α. Quick opening gives large flow change at small stem lift. Equal percentage has increasing sensitivity dm/dx = β·m, where equal increments of lift produce equal percentage changes in flow." },
+            { q: "22. Define rangeability of a control valve.", a: "Rangeability is the ratio of maximum controllable flow to minimum controllable flow over which the valve follows its inherent characteristic: Rangeability = m_max / m_min." },
+            { q: "23. List disadvantages of a pneumatic controller.", a: "(1) Higher installation/air-supply maintenance cost, (2) Transmission lag over long distances, and (3) Mechanical knob calibration required for gain, integral, and derivative settings." },
+            { q: "24. What is proportional band? Explain reset rate.", a: "Proportional band (PB = 100/Kp %) is the percentage error required to move the control valve from fully closed to fully open. Reset rate is the reciprocal of integral time (1 / τ_I)." },
+            { q: "25. Give the importance of integral mode in a PI controller.", a: "Integral action integrates error over time, completely eliminating steady-state Offset inherent to proportional-only control, though it introduces slightly more oscillatory behavior." },
+            { q: "26. Give the importance of derivative mode in a PD controller.", a: "Derivative action responds to the rate of change of error (de/dt), providing anticipatory braking that reduces overshoot and settling time with minimal oscillation." },
+            { q: "27. Write short notes on On-Off control.", a: "On-Off control (two-position control) is a special case of proportional control with extremely high gain (zero bandwidth). The final control element switches abruptly between 100% ON and 0% OFF around a differential gap." },
+            { q: "28. Define offset. What type of controller eliminates offset?", a: "Offset is the sustained steady-state deviation between the Set Point and Process Variable after a load or set-point change in a P-only controller. Adding Integral mode (PI or PID controller) eliminates offset." },
+            { q: "29. Write the transfer function of a PID controller.", a: "P(s) / ε(s) = Kc [ 1 + τ_D·s + 1/(τ_I·s) ], where Kc = proportional gain, τ_I = integral time, and τ_D = derivative time." },
+            { q: "30. Explain transportation lag or delay.", a: "Transportation lag (dead time, τ_d) is the time required for fluid to travel from pipe inlet to outlet: τ_d = Pipe Volume / Volumetric Flow Rate. Its transfer function is e^(−τ_d·s)." },
+            { q: "31. When do we go for advanced control schemes?", a: "When simple single-loop feedback control fails to give satisfactory performance due to large, frequent load disturbances or significant dead time." },
+            { q: "32. Define 'Cascade control'.", a: "Cascade control uses two controllers in nested loops: the Primary (Master) controller adjusts the set point of a Secondary (Slave) controller, which directly drives the control valve to reject inner-loop disturbances rapidly." },
+            { q: "33. Give an example for cascade control.", a: "Temperature control of a jacketed chemical reactor: the Primary reactor temperature controller sets the set point for the Secondary jacket coolant flow controller." },
+            { q: "34. Explain the importance of Cascade control.", a: "The fast inner loop detects and corrects supply disturbances (such as header pressure fluctuations) immediately before they propagate into the slow primary process." },
+            { q: "35. Distinguish between feedback and feed-forward control.", a: "Feedback reacts only after an error has occurred in the controlled variable. Feed-forward measures load disturbances directly at the source and takes corrective action before the controlled variable deviates." },
+            { q: "36. When is feed-forward control used? Explain its advantages.", a: "Used when major load disturbances can be measured online in systems with large dead times. It corrects disturbances proactively before process upset occurs." },
+            { q: "37. Give examples of systems where feed-forward control is used.", a: "Heat exchanger steam flow control based on inlet fluid flow/temperature, distillation column feed-forward control, CSTR temperature control, and boiler drum level control." },
+            { q: "38. Write the limitations of feed-forward control.", a: "(1) Corrects only for measured disturbances, (2) Requires an accurate mathematical process model, and (3) Cannot compensate for unmeasured parameter drift (usually paired with feedback trim)." },
+            { q: "39. Give the elements of a computer control system.", a: "Process, Measuring Element, ADC (Analog-to-Digital Converter), Microprocessor/PC Controller, DAC (Digital-to-Analog Converter), and Final Control Element." },
+            { q: "40. What is an analog to digital converter (ADC)?", a: "An ADC converts continuous analog sensor signals (4–20 mA or 1–5 V) into discrete digital numbers readable by a computer, while a DAC converts digital controller outputs back to 4–20 mA analog signals." }
+        ];
+
+        // =========================================================================
+        // 2. APPLICATION STATE & STUDENT RECORD PERSISTENCE
+        // =========================================================================
+        let activeExpId = 'exp1';
+        let activeCharts = [];
+        let currentSimulationData = null;
+        let studentInfo = {
+            name: 'STUDENT NAME',
+            regNo: '420421203XXX',
+            date: new Date().toISOString().split('T')[0]
+        };
+
+        try {
+            const saved = localStorage.getItem('ch3711_student');
+            if (saved) studentInfo = JSON.parse(saved);
+        } catch (e) { }
+
+        function updateHeaderStudentLabel() {
+            const lbl = document.getElementById('header-student-label');
+            if (lbl) lbl.textContent = studentInfo.name !== 'STUDENT NAME' ? `${studentInfo.name} (${studentInfo.regNo})` : 'Set Student Info';
+        }
+
+        function openStudentModal() {
+            document.getElementById('input-student-name').value = studentInfo.name === 'STUDENT NAME' ? '' : studentInfo.name;
+            document.getElementById('input-reg-no').value = studentInfo.regNo === '420421203XXX' ? '' : studentInfo.regNo;
+            document.getElementById('input-exp-date').value = studentInfo.date;
+            document.getElementById('student-modal').classList.remove('hidden');
+            document.getElementById('student-modal').classList.add('flex');
+        }
+
+        function closeStudentModal() {
+            document.getElementById('student-modal').classList.add('hidden');
+            document.getElementById('student-modal').classList.remove('flex');
+        }
+
+        function saveStudentInfo() {
+            const name = document.getElementById('input-student-name').value.trim() || 'STUDENT NAME';
+            const regNo = document.getElementById('input-reg-no').value.trim() || '420421203XXX';
+            const date = document.getElementById('input-exp-date').value || new Date().toISOString().split('T')[0];
+            studentInfo = { name: name.toUpperCase(), regNo: regNo.toUpperCase(), date };
+            try { localStorage.setItem('ch3711_student', JSON.stringify(studentInfo)); } catch (e) { }
+            updateHeaderStudentLabel();
+            closeStudentModal();
+            showToast('Student details saved for PDF Lab Record!', 'success');
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const colors = {
+                info: 'bg-slate-800 text-white border-slate-700',
+                success: 'bg-emerald-600 text-white border-emerald-500',
+                warning: 'bg-amber-600 text-white border-amber-500'
+            };
+            toast.className = `pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-lg border text-xs font-medium transition-all duration-300 transform translate-y-2 opacity-0 ${colors[type] || colors.info}`;
+            toast.innerHTML = `<i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-info-circle'}"></i><span>${message}</span>`;
+            container.appendChild(toast);
+            requestAnimationFrame(() => toast.classList.remove('translate-y-2', 'opacity-0'));
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3200);
+        }
+
+        document.getElementById('theme-toggle').addEventListener('click', () => {
+            document.documentElement.classList.toggle('dark');
+            const isDark = document.documentElement.classList.contains('dark');
+            document.getElementById('theme-icon').className = isDark ? 'fas fa-sun text-amber-400' : 'fas fa-moon';
+            if (threeLab.scene) {
+                threeLab.scene.background = new THREE.Color(isDark ? 0x0b1120 : 0xe2e8f0);
+                threeLab.scene.fog = new THREE.FogExp2(isDark ? 0x0b1120 : 0xe2e8f0, 0.035);
+            }
+            selectExperiment(activeExpId);
+        });
+
+        function toggleMobileMenu() {
+            document.getElementById('sidebar').classList.toggle('-translate-x-full');
+            document.getElementById('sidebar-backdrop').classList.toggle('hidden');
+        }
+        document.getElementById('mobile-menu-btn').addEventListener('click', toggleMobileMenu);
+
+        // =========================================================================
+        // 3. THREE.JS INTERACTIVE 3D PROCESS LAB ENGINE
+        // =========================================================================
+        const threeLab = {
+            scene: null,
+            camera: null,
+            renderer: null,
+            controls: null,
+            rigGroup: null,
+            interactables: [],
+            callouts: [],
+            animState: {
+                expId: 'exp1',
+                flowLPH: 250,
+                maxFlowLPH: 500,
+                h1Frac: 0.5,
+                h2Frac: 0.3,
+                valveOpen: 0.75,
+                heaterPower: 0.5,
+                pressurePsi: 20,
+                manometerY: 0,
+                branchIndex: 0, // For Ex 12 (0=QO, 1=Linear, 2=Equal%)
+                // References to live 3D meshes updated at 60 FPS
+                meshes: {}
+            },
+            raycaster: new THREE.Raycaster(),
+            mouse: new THREE.Vector2(),
+            clock: new THREE.Clock()
+        };
+
+        // Materials Library (PBR Metallic, Transparent Acrylic, Glowing Fluids)
+        const MATS = {
+            steel: new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.85, roughness: 0.25 }),
+            darkFrame: new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.6, roughness: 0.4 }),
+            copper: new THREE.MeshStandardMaterial({ color: 0xd97706, metalness: 0.8, roughness: 0.25 }),
+            brass: new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.85, roughness: 0.2 }),
+            acrylic: new THREE.MeshPhysicalMaterial({
+                color: 0xe0f2fe, transparent: true, opacity: 0.28, roughness: 0.1,
+                metalness: 0.05, side: THREE.DoubleSide, depthWrite: false
+            }),
+            waterBlue: new THREE.MeshPhysicalMaterial({
+                color: 0x0284c7, emissive: 0x0369a1, emissiveIntensity: 0.25,
+                transparent: true, opacity: 0.82, roughness: 0.15
+            }),
+            waterEmerald: new THREE.MeshPhysicalMaterial({
+                color: 0x059669, emissive: 0x047857, emissiveIntensity: 0.25,
+                transparent: true, opacity: 0.82, roughness: 0.15
+            }),
+            mercury: new THREE.MeshStandardMaterial({
+                color: 0x334155, metalness: 0.95, roughness: 0.12
+            }),
+            valveRed: new THREE.MeshStandardMaterial({ color: 0xef4444, metalness: 0.4, roughness: 0.35 }),
+            valveGreen: new THREE.MeshStandardMaterial({ color: 0x10b981, metalness: 0.4, roughness: 0.35 }),
+            actuatorBlue: new THREE.MeshStandardMaterial({ color: 0x0284c7, metalness: 0.5, roughness: 0.3 }),
+            pipeActive: new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x0284c7, emissiveIntensity: 0.35, metalness: 0.4, roughness: 0.3 }),
+            pipeIdle: new THREE.MeshStandardMaterial({ color: 0x64748b, metalness: 0.7, roughness: 0.35 }),
+            sensorBox: new THREE.MeshStandardMaterial({ color: 0x4f46e5, metalness: 0.5, roughness: 0.3 })
+        };
+
+        function initThreeEngine(containerEl) {
+            // Clean up previous renderer if re-mounting
+            if (threeLab.renderer && threeLab.renderer.domElement && threeLab.renderer.domElement.parentNode) {
+                threeLab.renderer.domElement.parentNode.removeChild(threeLab.renderer.domElement);
+            }
+
+            const width = containerEl.clientWidth || 600;
+            const height = containerEl.clientHeight || 420;
+            const isDark = document.documentElement.classList.contains('dark');
+
+            if (!threeLab.scene) {
+                threeLab.scene = new THREE.Scene();
+                threeLab.camera = new THREE.PerspectiveCamera(42, width / height, 0.1, 100);
+                threeLab.camera.position.set(5.2, 3.8, 6.8);
+
+                threeLab.renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+                threeLab.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                threeLab.renderer.shadowMap.enabled = true;
+                threeLab.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+                // Studio Three-Point Lighting
+                const hemiLight = new THREE.HemisphereLight(0xffffff, 0x334155, 0.85);
+                threeLab.scene.add(hemiLight);
+
+                const dirLight = new THREE.DirectionalLight(0xffffff, 1.1);
+                dirLight.position.set(6, 10, 7);
+                dirLight.castShadow = true;
+                dirLight.shadow.mapSize.width = 1024;
+                dirLight.shadow.mapSize.height = 1024;
+                threeLab.scene.add(dirLight);
+
+                const rimLight = new THREE.DirectionalLight(0x38bdf8, 0.45);
+                rimLight.position.set(-6, 5, -6);
+                threeLab.scene.add(rimLight);
+
+                // Lab Floor Grid & Skids Base
+                const gridHelper = new THREE.GridHelper(16, 24, 0x64748b, 0x94a3b8);
+                gridHelper.material.opacity = 0.25;
+                gridHelper.material.transparent = true;
+                threeLab.scene.add(gridHelper);
+
+                threeLab.rigGroup = new THREE.Group();
+                threeLab.scene.add(threeLab.rigGroup);
+            }
+
+            threeLab.scene.background = new THREE.Color(isDark ? 0x0b1120 : 0xe2e8f0);
+            threeLab.scene.fog = new THREE.FogExp2(isDark ? 0x0b1120 : 0xe2e8f0, 0.032);
+            threeLab.renderer.setSize(width, height);
+            containerEl.appendChild(threeLab.renderer.domElement);
+
+            // OrbitControls
+            threeLab.controls = new THREE.OrbitControls(threeLab.camera, threeLab.renderer.domElement);
+            threeLab.controls.enableDamping = true;
+            threeLab.controls.dampingFactor = 0.06;
+            threeLab.controls.minDistance = 2.5;
+            threeLab.controls.maxDistance = 15;
+            threeLab.controls.target.set(0, 1.5, 0);
+
+            // Raycasting Click Event on 3D Valves / Pumps
+            threeLab.renderer.domElement.addEventListener('pointerdown', onThreePointerDown);
+            window.addEventListener('resize', onThreeResize);
+        }
+
+        function onThreeResize() {
+            const wrapper = document.getElementById('three-canvas-wrapper');
+            if (!wrapper || !threeLab.renderer || !threeLab.camera) return;
+            const w = wrapper.clientWidth;
+            const h = wrapper.clientHeight;
+            threeLab.camera.aspect = w / h;
+            threeLab.camera.updateProjectionMatrix();
+            threeLab.renderer.setSize(w, h);
+        }
+
+        function setCameraPreset(preset) {
+            if (!threeLab.camera || !threeLab.controls) return;
+            const targets = {
+                iso: { pos: [5.2, 3.8, 6.8], target: [0, 1.5, 0] },
+                front: { pos: [0, 2.2, 7.6], target: [0, 1.6, 0] },
+                top: { pos: [0, 7.8, 1.8], target: [0, 1.2, 0] },
+                valve: { pos: [2.2, 2.1, 3.2], target: [0.3, 1.3, 0.2] }
+            };
+            const t = targets[preset] || targets.iso;
+            threeLab.camera.position.set(...t.pos);
+            threeLab.controls.target.set(...t.target);
+            threeLab.controls.update();
+        }
+
+        // Direct 3D Raycast Interaction (Click handwheel or pump in 3D scene)
+        function onThreePointerDown(event) {
+            const rect = threeLab.renderer.domElement.getBoundingClientRect();
+            threeLab.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            threeLab.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+            threeLab.raycaster.setFromCamera(threeLab.mouse, threeLab.camera);
+            const hits = threeLab.raycaster.intersectObjects(threeLab.interactables, true);
+            if (hits.length > 0) {
+                let obj = hits[0].object;
+                while (obj && !obj.userData.action && obj.parent) {
+                    obj = obj.parent;
+                }
+                if (obj && obj.userData.action) {
+                    obj.userData.action();
+                }
+            }
+        }
+
+        // Helper Builders for 3D Industrial Process Components
+        function createLabBenchBase(width = 5.4, depth = 2.6) {
+            const group = new THREE.Group();
+            const table = new THREE.Mesh(new THREE.BoxGeometry(width, 0.16, depth), MATS.darkFrame);
+            table.position.y = 0.08;
+            table.receiveShadow = true;
+            group.add(table);
+
+            // Sump reservoir underneath
+            const sump = new THREE.Mesh(new THREE.BoxGeometry(width * 0.7, 0.35, depth * 0.65), MATS.acrylic);
+            sump.position.set(0, 0.33, 0);
+            group.add(sump);
+            const sumpWater = new THREE.Mesh(new THREE.BoxGeometry(width * 0.68, 0.24, depth * 0.63), MATS.waterBlue);
+            sumpWater.position.set(0, 0.28, 0);
+            group.add(sumpWater);
+
+            // Centrifugal Feed Pump on left
+            const pumpGroup = new THREE.Group();
+            pumpGroup.position.set(-width * 0.38, 0.42, 0.45);
+            const motor = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.45, 20), MATS.actuatorBlue);
+            motor.rotation.z = Math.PI / 2;
+            const volute = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.16, 20), MATS.steel);
+            volute.rotation.x = Math.PI / 2;
+            volute.position.x = 0.28;
+            const impeller = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.06, 0.18), MATS.brass);
+            impeller.position.set(0.28, 0, 0.09);
+            pumpGroup.add(motor, volute, impeller);
+            group.add(pumpGroup);
+            threeLab.animState.meshes.impeller = impeller;
+
+            return group;
+        }
+
+        function createCylindricalTank(radius = 0.65, height = 2.1, waterMat = MATS.waterBlue) {
+            const tankGroup = new THREE.Group();
+            // Flanges top & bottom
+            const botFlange = new THREE.Mesh(new THREE.CylinderGeometry(radius + 0.06, radius + 0.06, 0.08, 32), MATS.darkFrame);
+            const topFlange = new THREE.Mesh(new THREE.CylinderGeometry(radius + 0.06, radius + 0.06, 0.06, 32), MATS.darkFrame);
+            topFlange.position.y = height;
+
+            // Acrylic Cylinder
+            const shell = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, height, 32, 1, true), MATS.acrylic);
+            shell.position.y = height / 2;
+
+            // Graduated Level Scale Strip
+            const scaleBar = new THREE.Mesh(new THREE.BoxGeometry(0.05, height * 0.92, 0.02), new THREE.MeshBasicMaterial({ color: 0xf8fafc }));
+            scaleBar.position.set(0, height / 2, radius + 0.01);
+
+            // Dynamic Water Cylinder (scaled from bottom)
+            const waterGeo = new THREE.CylinderGeometry(radius - 0.025, radius - 0.025, 1, 32);
+            waterGeo.translate(0, 0.5, 0); // Pivot at bottom!
+            const waterMesh = new THREE.Mesh(waterGeo, waterMat);
+            waterMesh.position.y = 0.04;
+            waterMesh.scale.y = 0.45 * height;
+
+            tankGroup.add(botFlange, topFlange, shell, scaleBar, waterMesh);
+            return { group: tankGroup, waterMesh, height };
+        }
+
+        function createRotameter(height = 1.1) {
+            const g = new THREE.Group();
+            const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.07, height, 20), MATS.acrylic);
+            const capTop = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.08, 20), MATS.steel);
+            capTop.position.y = height / 2;
+            const capBot = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.08, 20), MATS.steel);
+            capBot.position.y = -height / 2;
+            const bob = new THREE.Mesh(new THREE.ConeGeometry(0.055, 0.12, 16), MATS.valveRed);
+            bob.rotation.x = Math.PI;
+            g.add(tube, capTop, capBot, bob);
+            return { group: g, bob, height };
+        }
+
+        function createHandValve(colorMat = MATS.valveRed, onClickAction = null) {
+            const g = new THREE.Group();
+            const body = new THREE.Mesh(new THREE.SphereGeometry(0.13, 16, 16), MATS.brass);
+            const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.22, 12), MATS.steel);
+            stem.position.y = 0.16;
+            const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.022, 10, 24), colorMat);
+            wheel.rotation.x = Math.PI / 2;
+            wheel.position.y = 0.27;
+            const spoke = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.02, 0.025), colorMat);
+            spoke.position.y = 0.27;
+            g.add(body, stem, wheel, spoke);
+
+            if (onClickAction) {
+                g.userData.action = onClickAction;
+                threeLab.interactables.push(g);
+            }
+            return { group: g, wheel, spoke };
+        }
+
+        function createPneumaticControlValve(onClickAction = null) {
+            const g = new THREE.Group();
+            // Valve Body
+            const body = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.32, 16), MATS.steel);
+            body.rotation.z = Math.PI / 2;
+            // Yoke Pillars
+            const yokeL = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.42, 10), MATS.darkFrame);
+            yokeL.position.set(-0.1, 0.28, 0);
+            const yokeR = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.42, 10), MATS.darkFrame);
+            yokeR.position.set(0.1, 0.28, 0);
+            // Moving Stem & Travel Indicator
+            const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.36, 12), MATS.brass);
+            stem.position.y = 0.24;
+            const pointer = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.03, 0.04), MATS.valveRed);
+            pointer.position.y = 0.24;
+            // Diaphragm Actuator Dome
+            const dome = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.28, 0.16, 24), MATS.actuatorBlue);
+            dome.position.y = 0.54;
+            const domeCap = new THREE.Mesh(new THREE.SphereGeometry(0.26, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), MATS.actuatorBlue);
+            domeCap.position.y = 0.62;
+
+            g.add(body, yokeL, yokeR, stem, pointer, dome, domeCap);
+            if (onClickAction) {
+                g.userData.action = onClickAction;
+                threeLab.interactables.push(g);
+            }
+            return { group: g, stem, pointer };
+        }
+
+        function createPipeSegment(p1, p2, radius = 0.045, mat = MATS.pipeActive) {
+            const v1 = new THREE.Vector3(...p1);
+            const v2 = new THREE.Vector3(...p2);
+            const dist = v1.distanceTo(v2);
+            const cyl = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, dist, 14), mat);
+            cyl.position.copy(v1).add(v2).multiplyScalar(0.5);
+            cyl.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), v2.clone().sub(v1).normalize());
+            return cyl;
+        }
+
+        function register3DCallout(id, label, positionVec3, colorClass = 'bg-sky-600') {
+            threeLab.callouts.push({ id, label, pos: positionVec3, colorClass });
+        }
+
+        // Build Experiment-Specific 3D Process Rig
+        function build3DRigForExperiment(expId) {
+            if (!threeLab.rigGroup) return;
+            // Clear old scene meshes & callouts
+            while (threeLab.rigGroup.children.length > 0) {
+                threeLab.rigGroup.remove(threeLab.rigGroup.children[0]);
+            }
+            threeLab.interactables = [];
+            threeLab.callouts = [];
+            threeLab.animState.meshes = {};
+            threeLab.animState.expId = expId;
+
+            const base = createLabBenchBase();
+            threeLab.rigGroup.add(base);
+
+            if (expId === 'exp1' || expId === 'exp4' || expId === 'exp7') {
+                // Single Process Tank + Rotameter + Control/Hand Valve
+                const tank = createCylindricalTank(0.75, 2.2, MATS.waterBlue);
+                tank.group.position.set(0.55, 0.55, 0);
+                threeLab.rigGroup.add(tank.group);
+                threeLab.animState.meshes.water1 = tank.waterMesh;
+                threeLab.animState.meshes.tank1H = tank.height;
+
+                const rota = createRotameter(1.15);
+                rota.group.position.set(-1.35, 1.45, 0.45);
+                threeLab.rigGroup.add(rota.group);
+                threeLab.animState.meshes.bob = rota.bob;
+                threeLab.animState.meshes.rotaH = rota.height;
+
+                // Piping
+                threeLab.rigGroup.add(
+                    createPipeSegment([-1.65, 0.65, 0.45], [-1.35, 0.85, 0.45]),
+                    createPipeSegment([-1.35, 2.05, 0.45], [-1.35, 2.95, 0.45]),
+                    createPipeSegment([-1.35, 2.95, 0.45], [0.55, 2.95, 0]),
+                    createPipeSegment([0.55, 2.95, 0], [0.55, 2.65, 0]),
+                    createPipeSegment([1.3, 0.72, 0], [2.3, 0.72, 0])
+                );
+
+                // Interactive Valve (Hand Valve for Ex 1, Pneumatic Control Valve for Ex 4 & 7)
+                if (expId === 'exp1') {
+                    const hv = createHandValve(MATS.valveGreen, () => {
+                        const ySlider = document.getElementById('e1-y');
+                        if (ySlider) {
+                            const nextVal = Number(ySlider.value) >= 400 ? 180 : Number(ySlider.value) + 60;
+                            ySlider.value = nextVal;
+                            updateExp1();
+                            showToast(`3D Inlet Valve Adjusted: Step Flow Y = ${nextVal} LPH`, 'info');
+                        }
+                    });
+                    hv.group.position.set(-0.4, 2.95, 0.22);
+                    threeLab.rigGroup.add(hv.group);
+                    threeLab.animState.meshes.handWheel = hv.wheel;
+                } else {
+                    const cv = createPneumaticControlValve(() => {
+                        if (expId === 'exp4') {
+                            const s = document.getElementById('cl-man-slider');
+                            s.value = (Number(s.value) + 25) % 125;
+                            updateClosedLoop('level');
+                            showToast(`3D Pneumatic Control Valve Stepped to ${s.value}%`, 'info');
+                        }
+                    });
+                    cv.group.position.set(-0.4, 2.95, 0.22);
+                    threeLab.rigGroup.add(cv.group);
+                    threeLab.animState.meshes.valveStem = cv.stem;
+                    threeLab.animState.meshes.valvePointer = cv.pointer;
+
+                    // Level Transmitter Box on side of tank
+                    const lt = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.34, 0.22), MATS.sensorBox);
+                    lt.position.set(1.42, 1.35, 0.2);
+                    threeLab.rigGroup.add(lt);
+                    register3DCallout('lt', 'LT (4-20 mA)', new THREE.Vector3(1.42, 1.75, 0.2), 'bg-indigo-600');
+                }
+
+                // Outlet Hand Valve
+                const outV = createHandValve(MATS.valveRed);
+                outV.group.position.set(1.85, 0.72, 0);
+                threeLab.rigGroup.add(outV.group);
+
+                register3DCallout('flow', 'Inflow (LPH)', new THREE.Vector3(-1.35, 2.25, 0.45), 'bg-sky-600');
+                register3DCallout('lvl1', 'Tank Level h(t)', new THREE.Vector3(0.55, 2.85, 0), 'bg-emerald-600');
+
+            } else if (expId === 'exp2') {
+                // Non-Interacting Two-Tank Vertical Cascade
+                const t1 = createCylindricalTank(0.55, 1.35, MATS.waterBlue);
+                t1.group.position.set(-0.35, 2.15, 0);
+                const t2 = createCylindricalTank(0.55, 1.35, MATS.waterEmerald);
+                t2.group.position.set(0.95, 0.55, 0);
+                threeLab.rigGroup.add(t1.group, t2.group);
+                threeLab.animState.meshes.water1 = t1.waterMesh;
+                threeLab.animState.meshes.tank1H = t1.height;
+                threeLab.animState.meshes.water2 = t2.waterMesh;
+                threeLab.animState.meshes.tank2H = t2.height;
+
+                const rota = createRotameter(1.1);
+                rota.group.position.set(-1.6, 1.6, 0.45);
+                threeLab.rigGroup.add(rota.group);
+                threeLab.animState.meshes.bob = rota.bob;
+                threeLab.animState.meshes.rotaH = rota.height;
+
+                // Pipes (Tank 1 free-falls into top of Tank 2)
+                threeLab.rigGroup.add(
+                    createPipeSegment([-1.6, 2.18, 0.45], [-1.6, 3.65, 0.45]),
+                    createPipeSegment([-1.6, 3.65, 0.45], [-0.35, 3.65, 0]),
+                    createPipeSegment([0.2, 2.25, 0], [0.95, 2.25, 0]),
+                    createPipeSegment([0.95, 2.25, 0], [0.95, 1.92, 0]),
+                    createPipeSegment([1.5, 0.68, 0], [2.35, 0.68, 0])
+                );
+
+                const hv = createHandValve(MATS.valveGreen, () => {
+                    const ySlider = document.getElementById('e2-y');
+                    ySlider.value = Number(ySlider.value) >= 400 ? 180 : Number(ySlider.value) + 60;
+                    updateExp2();
+                    showToast(`3D Inlet Valve Adjusted: Y = ${ySlider.value} LPH`, 'info');
+                });
+                hv.group.position.set(-1.0, 3.65, 0.2);
+                threeLab.rigGroup.add(hv.group);
+                threeLab.animState.meshes.handWheel = hv.wheel;
+
+                register3DCallout('lvl1', 'Tank 1 (h₁)', new THREE.Vector3(-0.35, 3.6, 0), 'bg-sky-600');
+                register3DCallout('lvl2', 'Tank 2 (h₂)', new THREE.Vector3(0.95, 2.0, 0), 'bg-emerald-600');
+
+            } else if (expId === 'exp3') {
+                // Interacting Two-Tank Side-by-Side Coupled at Bottom
+                const t1 = createCylindricalTank(0.58, 1.9, MATS.waterBlue);
+                t1.group.position.set(-0.3, 0.55, 0);
+                const t2 = createCylindricalTank(0.58, 1.9, MATS.waterEmerald);
+                t2.group.position.set(1.35, 0.55, 0);
+                threeLab.rigGroup.add(t1.group, t2.group);
+                threeLab.animState.meshes.water1 = t1.waterMesh;
+                threeLab.animState.meshes.tank1H = t1.height;
+                threeLab.animState.meshes.water2 = t2.waterMesh;
+                threeLab.animState.meshes.tank2H = t2.height;
+
+                const rota = createRotameter(1.1);
+                rota.group.position.set(-1.6, 1.45, 0.45);
+                threeLab.rigGroup.add(rota.group);
+                threeLab.animState.meshes.bob = rota.bob;
+                threeLab.animState.meshes.rotaH = rota.height;
+
+                // Bottom Interacting Pipe with Resistance Valve R1
+                threeLab.rigGroup.add(
+                    createPipeSegment([-1.6, 2.05, 0.45], [-1.6, 2.75, 0.45]),
+                    createPipeSegment([-1.6, 2.75, 0.45], [-0.3, 2.75, 0]),
+                    createPipeSegment([0.28, 0.72, 0], [0.77, 0.72, 0], 0.06, MATS.copper),
+                    createPipeSegment([1.93, 0.72, 0], [2.45, 0.72, 0])
+                );
+
+                const interValve = createHandValve(MATS.valveGreen);
+                interValve.group.position.set(0.52, 0.72, 0);
+                threeLab.rigGroup.add(interValve.group);
+
+                const inValve = createHandValve(MATS.valveGreen, () => {
+                    const ySlider = document.getElementById('e3-y');
+                    ySlider.value = Number(ySlider.value) >= 400 ? 180 : Number(ySlider.value) + 60;
+                    updateExp3();
+                    showToast(`3D Step Flow Y = ${ySlider.value} LPH`, 'info');
+                });
+                inValve.group.position.set(-0.95, 2.75, 0.2);
+                threeLab.rigGroup.add(inValve.group);
+                threeLab.animState.meshes.handWheel = inValve.wheel;
+
+                register3DCallout('lvl1', 'Tank 1 (h₁)', new THREE.Vector3(-0.3, 2.55, 0), 'bg-indigo-600');
+                register3DCallout('lvl2', 'Tank 2 (h₂)', new THREE.Vector3(1.35, 2.55, 0), 'bg-emerald-600');
+
+            } else if (expId === 'exp5' || expId === 'exp8') {
+                // Flow System: Pipeline + Orifice Plate + DPT + Control Valve + Rotameter
+                const rota = createRotameter(1.25);
+                rota.group.position.set(-1.55, 1.45, 0.3);
+                threeLab.rigGroup.add(rota.group);
+                threeLab.animState.meshes.bob = rota.bob;
+                threeLab.animState.meshes.rotaH = rota.height;
+
+                // Horizontal Flow Line
+                threeLab.rigGroup.add(
+                    createPipeSegment([-1.55, 2.1, 0.3], [-1.55, 2.4, 0.3]),
+                    createPipeSegment([-1.55, 2.4, 0.3], [2.2, 2.4, 0.3]),
+                    createPipeSegment([2.2, 2.4, 0.3], [2.2, 0.45, 0.3])
+                );
+
+                // Orifice Flange & DPT Sensor
+                const orificeFlange = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.08, 20), MATS.copper);
+                orificeFlange.rotation.z = Math.PI / 2;
+                orificeFlange.position.set(-0.2, 2.4, 0.3);
+                const dpt = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.36, 0.24), MATS.sensorBox);
+                dpt.position.set(-0.2, 1.85, 0.3);
+                threeLab.rigGroup.add(orificeFlange, dpt);
+
+                const cv = createPneumaticControlValve(() => {
+                    if (expId === 'exp5') {
+                        const s = document.getElementById('cl-pv-slider');
+                        s.value = (Number(s.value) + 100) % 600;
+                        updateClosedLoop('flow');
+                        showToast(`3D Flow Rate Stepped to ${s.value} LPH`, 'info');
+                    }
+                });
+                cv.group.position.set(1.05, 2.4, 0.3);
+                threeLab.rigGroup.add(cv.group);
+                threeLab.animState.meshes.valveStem = cv.stem;
+                threeLab.animState.meshes.valvePointer = cv.pointer;
+
+                register3DCallout('flow', 'Flow Line (LPH)', new THREE.Vector3(-1.55, 2.3, 0.3), 'bg-sky-600');
+                register3DCallout('dpt', 'Orifice + DPT', new THREE.Vector3(-0.2, 1.5, 0.3), 'bg-indigo-600');
+
+            } else if (expId === 'exp6' || expId === 'exp10') {
+                // Pressure Vessel + Analog/Digital Pressure Gauge + Control Valve
+                const vessel = new THREE.Mesh(new THREE.CylinderGeometry(0.68, 0.68, 1.65, 32), MATS.steel);
+                vessel.position.set(0.65, 1.45, 0);
+                const capT = new THREE.Mesh(new THREE.SphereGeometry(0.68, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2), MATS.steel);
+                capT.position.set(0.65, 2.27, 0);
+                threeLab.rigGroup.add(vessel, capT);
+
+                // 3D Bourdon Pressure Gauge with Rotating Needle
+                const dial = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.08, 24), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+                dial.rotation.x = Math.PI / 2;
+                dial.position.set(0.65, 1.75, 0.72);
+                const needle = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.22, 0.02), MATS.valveRed);
+                needle.position.set(0.65, 1.75, 0.77);
+                threeLab.rigGroup.add(dial, needle);
+                threeLab.animState.meshes.gaugeNeedle = needle;
+
+                threeLab.rigGroup.add(
+                    createPipeSegment([-1.6, 1.65, 0.2], [0.0, 1.65, 0.2]),
+                    createPipeSegment([1.33, 1.2, 0], [2.25, 1.2, 0])
+                );
+
+                const cv = createPneumaticControlValve();
+                cv.group.position.set(-0.75, 1.65, 0.2);
+                threeLab.rigGroup.add(cv.group);
+                threeLab.animState.meshes.valveStem = cv.stem;
+                threeLab.animState.meshes.valvePointer = cv.pointer;
+
+                register3DCallout('press', 'Pressure Vessel (Psi)', new THREE.Vector3(0.65, 3.05, 0), 'bg-amber-600');
+
+            } else if (expId === 'exp9' || expId === 'exp15') {
+                // Thermal Process Tank with Glowing Immersion Heater Coil & RTD
+                const tank = createCylindricalTank(0.75, 2.0, MATS.waterBlue);
+                tank.group.position.set(0.55, 0.55, 0);
+                threeLab.rigGroup.add(tank.group);
+                threeLab.animState.meshes.water1 = tank.waterMesh;
+                threeLab.animState.meshes.tank1H = tank.height;
+
+                // Glowing Immersion Heater Coil inside tank
+                const coilMat = new THREE.MeshStandardMaterial({
+                    color: 0xff4500, emissive: 0xff2200, emissiveIntensity: 0.9, metalness: 0.4, roughness: 0.2
+                });
+                const coil = new THREE.Mesh(new THREE.TorusKnotGeometry(0.28, 0.045, 64, 12), coilMat);
+                coil.position.set(0.55, 1.05, 0);
+                threeLab.rigGroup.add(coil);
+                threeLab.animState.meshes.heaterCoil = coil;
+
+                // RTD Sensor Probe
+                const rtd = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.2, 12), MATS.copper);
+                rtd.position.set(0.95, 1.9, 0.2);
+                threeLab.rigGroup.add(rtd);
+
+                const cv = createPneumaticControlValve();
+                cv.group.position.set(-0.85, 2.3, 0.2);
+                threeLab.rigGroup.add(cv.group);
+                threeLab.animState.meshes.valveStem = cv.stem;
+                threeLab.animState.meshes.valvePointer = cv.pointer;
+
+                threeLab.rigGroup.add(createPipeSegment([-1.6, 2.3, 0.2], [0.55, 2.3, 0]));
+                register3DCallout('temp', 'Thermal Vessel (°C)', new THREE.Vector3(0.55, 2.75, 0), 'bg-rose-600');
+
+            } else if (expId === 'exp11') {
+                // Equal Percentage Control Valve Cutaway / Assembly Bench
+                const rota = createRotameter(1.25);
+                rota.group.position.set(-1.35, 1.45, 0.3);
+                threeLab.rigGroup.add(rota.group);
+                threeLab.animState.meshes.bob = rota.bob;
+                threeLab.animState.meshes.rotaH = rota.height;
+
+                const cv = createPneumaticControlValve(() => {
+                    const pSlider = document.getElementById('e11-p');
+                    pSlider.value = Number(pSlider.value) >= 15 ? 3 : Number(pSlider.value) + 3;
+                    updateExp11();
+                    showToast(`3D Equal % Valve Pressure = ${pSlider.value} psi`, 'info');
+                });
+                cv.group.scale.set(1.45, 1.45, 1.45);
+                cv.group.position.set(0.35, 1.75, 0.3);
+                threeLab.rigGroup.add(cv.group);
+                threeLab.animState.meshes.valveStem = cv.stem;
+                threeLab.animState.meshes.valvePointer = cv.pointer;
+
+                threeLab.rigGroup.add(
+                    createPipeSegment([-1.35, 2.1, 0.3], [1.95, 1.75, 0.3]),
+                    createPipeSegment([1.95, 1.75, 0.3], [1.95, 0.45, 0.3])
+                );
+                register3DCallout('vlv', 'Equal % Valve Lift', new THREE.Vector3(0.35, 2.85, 0.3), 'bg-sky-600');
+
+            } else if (expId === 'exp12') {
+                // 3-Branch Valve Manifold (Quick Opening, Linear, Equal Percentage)
+                const branchConfigs = [
+                    { z: -0.65, name: 'Quick Opening', color: MATS.valveRed },
+                    { z: 0.0, name: 'Linear Valve', color: MATS.sensorBox },
+                    { z: 0.65, name: 'Equal % Valve', color: MATS.actuatorBlue }
+                ];
+                threeLab.animState.meshes.branches = [];
+
+                branchConfigs.forEach((b, idx) => {
+                    threeLab.rigGroup.add(createPipeSegment([-1.5, 1.5, b.z], [1.8, 1.5, b.z], 0.04, MATS.pipeIdle));
+                    const hv = createHandValve(b.color, () => {
+                        threeLab.animState.branchIndex = idx;
+                        showToast(`Switched 3D Manifold to ${b.name} Branch`, 'info');
+                    });
+                    hv.group.position.set(-0.7, 1.5, b.z);
+                    const cv = createPneumaticControlValve();
+                    cv.group.position.set(0.55, 1.5, b.z);
+                    threeLab.rigGroup.add(hv.group, cv.group);
+                    threeLab.animState.meshes.branches.push({ hv, cv });
+                });
+                register3DCallout('man', '3-Valve Manifold (HV1–HV7)', new THREE.Vector3(0.55, 2.45, 0), 'bg-purple-600');
+
+            } else if (expId === 'exp13') {
+                // 3D Glass U-Tube Manometer with Oscillating Mercury Columns
+                const board = new THREE.Mesh(new THREE.BoxGeometry(1.6, 2.5, 0.12), MATS.darkFrame);
+                board.position.set(0.2, 1.65, -0.15);
+                threeLab.rigGroup.add(board);
+
+                // Left & Right Acrylic Limbs
+                const legL = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 1.85, 20), MATS.acrylic);
+                legL.position.set(-0.22, 1.75, 0.05);
+                const legR = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 1.85, 20), MATS.acrylic);
+                legR.position.set(0.62, 1.75, 0.05);
+                const uBend = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.08, 16, 32, Math.PI), MATS.mercury);
+                uBend.rotation.z = Math.PI;
+                uBend.position.set(0.2, 0.85, 0.05);
+
+                // Dynamic Mercury Columns (Pivot at bottom y=0.85)
+                const colGeo = new THREE.CylinderGeometry(0.068, 0.068, 1, 20);
+                colGeo.translate(0, 0.5, 0);
+                const mercL = new THREE.Mesh(colGeo, MATS.mercury);
+                mercL.position.set(-0.22, 0.85, 0.05);
+                const mercR = new THREE.Mesh(colGeo, MATS.mercury);
+                mercR.position.set(0.62, 0.85, 0.05);
+
+                // Hand Pressure Pump Bulb on Left
+                const pumpBulb = new THREE.Mesh(new THREE.SphereGeometry(0.22, 20, 20), MATS.valveRed);
+                pumpBulb.scale.set(1, 1.35, 1);
+                pumpBulb.position.set(-1.15, 1.85, 0.05);
+                pumpBulb.userData.action = () => {
+                    threeLab.animState.manometerPulseTime = performance.now();
+                    updateExp13();
+                    showToast('3D Hand Pump Pressed: Step Pressure Applied to Leg 1!', 'success');
+                };
+                threeLab.interactables.push(pumpBulb);
+
+                threeLab.rigGroup.add(
+                    legL, legR, uBend, mercL, mercR, pumpBulb,
+                    createPipeSegment([-1.15, 2.15, 0.05], [-1.15, 2.7, 0.05]),
+                    createPipeSegment([-1.15, 2.7, 0.05], [-0.22, 2.7, 0.05])
+                );
+
+                threeLab.animState.meshes.mercL = mercL;
+                threeLab.animState.meshes.mercR = mercR;
+                threeLab.animState.manometerPulseTime = performance.now();
+                register3DCallout('utube', 'U-Tube Manometer (Click Red Bulb)', new THREE.Vector3(0.2, 2.95, 0.05), 'bg-rose-600');
+
+            } else if (expId === 'exp14') {
+                // Cascade Control Rig: Primary Level Tank + Secondary Orifice/DPT Flow Loop
+                const tank = createCylindricalTank(0.68, 2.05, MATS.waterBlue);
+                tank.group.position.set(0.95, 0.55, 0);
+                threeLab.rigGroup.add(tank.group);
+                threeLab.animState.meshes.water1 = tank.waterMesh;
+                threeLab.animState.meshes.tank1H = tank.height;
+
+                const rota = createRotameter(1.1);
+                rota.group.position.set(-1.65, 1.45, 0.35);
+                threeLab.rigGroup.add(rota.group);
+                threeLab.animState.meshes.bob = rota.bob;
+                threeLab.animState.meshes.rotaH = rota.height;
+
+                const cv = createPneumaticControlValve();
+                cv.group.position.set(-0.55, 2.65, 0.2);
+                threeLab.rigGroup.add(cv.group);
+                threeLab.animState.meshes.valveStem = cv.stem;
+                threeLab.animState.meshes.valvePointer = cv.pointer;
+
+                threeLab.rigGroup.add(
+                    createPipeSegment([-1.65, 2.02, 0.35], [-1.65, 2.65, 0.35]),
+                    createPipeSegment([-1.65, 2.65, 0.35], [0.95, 2.65, 0])
+                );
+                register3DCallout('casc1', 'Master Level Loop (LC)', new THREE.Vector3(0.95, 2.75, 0), 'bg-sky-600');
+                register3DCallout('casc2', 'Slave Flow Loop (FC)', new THREE.Vector3(-0.55, 3.45, 0.2), 'bg-emerald-600');
+            }
+        }
+
+        // 60 FPS Animation Loop for 3D Equipment & Floating Screen-Space Callouts
+        function animateThreeLab() {
+            requestAnimationFrame(animateThreeLab);
+            if (!threeLab.renderer || !threeLab.scene || !threeLab.camera) return;
+
+            const dt = threeLab.clock.getDelta();
+            const st = threeLab.animState;
+            const m = st.meshes;
+
+            // Rotate pump impeller proportional to flowrate
+            if (m.impeller) {
+                m.impeller.rotation.z += dt * (2 + (st.flowLPH / 500) * 14);
+            }
+
+            // Rotate handwheel gently with flow setting
+            if (m.handWheel) {
+                m.handWheel.rotation.z = (st.flowLPH / 500) * Math.PI * 2;
+            }
+
+            // Move Rotameter bob vertically with flowrate
+            if (m.bob && m.rotaH) {
+                const normF = Math.max(0.05, Math.min(0.95, st.flowLPH / st.maxFlowLPH));
+                const targetY = -m.rotaH * 0.42 + normF * (m.rotaH * 0.84);
+                m.bob.position.y += (targetY - m.bob.position.y) * 0.15;
+            }
+
+            // Smoothly animate Tank 1 & Tank 2 liquid levels
+            if (m.water1 && m.tank1H) {
+                const targetScale1 = Math.max(0.08, Math.min(0.92, st.h1Frac)) * m.tank1H;
+                m.water1.scale.y += (targetScale1 - m.water1.scale.y) * 0.12;
+            }
+            if (m.water2 && m.tank2H) {
+                const targetScale2 = Math.max(0.08, Math.min(0.92, st.h2Frac)) * m.tank2H;
+                m.water2.scale.y += (targetScale2 - m.water2.scale.y) * 0.12;
+            }
+
+            // Pneumatic Control Valve Stem Travel
+            if (m.valveStem && m.valvePointer) {
+                const lift = 0.16 + st.valveOpen * 0.18;
+                m.valveStem.position.y += (lift - m.valveStem.position.y) * 0.15;
+                m.valvePointer.position.y = m.valveStem.position.y;
+            }
+
+            // Pressure Gauge Needle Rotation (Ex 6 & 10)
+            if (m.gaugeNeedle) {
+                const angle = Math.PI * 0.75 - (st.pressurePsi / 60) * Math.PI * 1.5;
+                m.gaugeNeedle.rotation.z += (angle - m.gaugeNeedle.rotation.z) * 0.15;
+            }
+
+            // Thermal Heater Coil Glow Intensity (Ex 9 & 15)
+            if (m.heaterCoil) {
+                m.heaterCoil.material.emissiveIntensity = 0.25 + st.heaterPower * 1.4;
+            }
+
+            // 3-Branch Manifold Highlight (Ex 12)
+            if (m.branches) {
+                m.branches.forEach((b, idx) => {
+                    const isActive = idx === st.branchIndex;
+                    b.hv.wheel.rotation.z = isActive ? Math.PI / 2 : 0;
+                    b.cv.stem.position.y = isActive ? (0.16 + st.valveOpen * 0.18) : 0.16;
+                    b.cv.pointer.position.y = b.cv.stem.position.y;
+                });
+            }
+
+            // U-Tube Manometer Real-Time Under-Damped Oscillation (Ex 13)
+            if (m.mercL && m.mercR && st.expId === 'exp13') {
+                const elapsed = (performance.now() - (st.manometerPulseTime || 0)) / 1000;
+                const zeta = parseFloat(document.getElementById('e13-z')?.value || 0.25);
+                const L = parseFloat(document.getElementById('e13-l')?.value || 1.2);
+                const tau = Math.sqrt((2 * L) / (3 * 9.81));
+                const sq = Math.sqrt(1 - zeta * zeta);
+                const omega = sq / tau;
+                const phi = Math.atan(sq / zeta);
+                const yt = 1 - (1 / sq) * Math.exp((-zeta * elapsed) / tau) * Math.sin(omega * elapsed + phi);
+                const disp = 0.42 * yt;
+                m.mercL.scale.y = Math.max(0.25, 0.85 - disp);
+                m.mercR.scale.y = Math.max(0.25, 0.85 + disp);
+            }
+
+            if (threeLab.controls) threeLab.controls.update();
+            threeLab.renderer.render(threeLab.scene, threeLab.camera);
+            update3DCalloutOverlays();
+        }
+
+        function update3DCalloutOverlays() {
+            const overlayContainer = document.getElementById('three-callout-layer');
+            const wrapper = document.getElementById('three-canvas-wrapper');
+            if (!overlayContainer || !wrapper || !threeLab.camera) return;
+
+            const w = wrapper.clientWidth;
+            const h = wrapper.clientHeight;
+            let html = '';
+
+            threeLab.callouts.forEach(c => {
+                const proj = c.pos.clone().project(threeLab.camera);
+                if (proj.z < 1) {
+                    const x = (proj.x * 0.5 + 0.5) * w;
+                    const y = (-proj.y * 0.5 + 0.5) * h;
+                    if (x > 20 && x < w - 20 && y > 20 && y < h - 10) {
+                        const liveVal = c.liveText || c.label;
+                        html += `
+                            <div class="callout-3d" style="left:${x}px; top:${y}px;">
+                                <span class="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold text-white shadow-md whitespace-nowrap ${c.colorClass}">
+                                    ${liveVal}
+                                </span>
+                            </div>
+                        `;
+                    }
+                }
+            });
+            overlayContainer.innerHTML = html;
+        }
+
+        // =========================================================================
+        // 4. SIDEBAR & EXPERIMENT VIEW BUILDER
+        // =========================================================================
+        function renderSidebar(filterText = '') {
+            const nav = document.getElementById('sidebar-nav');
+            const q = filterText.toLowerCase();
+            nav.innerHTML = '';
+
+            EXPERIMENTS.forEach(exp => {
+                if (q && !exp.title.toLowerCase().includes(q) && !exp.no.toLowerCase().includes(q) && !exp.category.toLowerCase().includes(q)) return;
+                const isActive = exp.id === activeExpId;
+                const btn = document.createElement('button');
+                btn.onclick = () => {
+                    selectExperiment(exp.id);
+                    if (window.innerWidth < 1024) toggleMobileMenu();
+                };
+                btn.className = `w-full text-left px-3 py-2.5 rounded-xl transition flex items-start gap-3 group ${isActive ? 'bg-sky-600 text-white shadow-md shadow-sky-600/20' : 'hover:bg-slate-100 dark:hover:bg-slate-800/80 text-slate-700 dark:text-slate-300'
+                    }`;
+                btn.innerHTML = `
+                    <div class="w-7 h-7 rounded-lg flex-shrink-0 flex items-center justify-center text-xs mt-0.5 ${isActive ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-sky-600 dark:text-sky-400'
+                    }"><i class="fas ${exp.icon}"></i></div>
+                    <div class="min-w-0 flex-1">
+                        <div class="flex items-center justify-between gap-1">
+                            <span class="text-[10px] font-bold uppercase tracking-wider ${isActive ? 'text-sky-100' : 'text-sky-600 dark:text-sky-400'}">${exp.no}</span>
+                            <span class="text-[9px] px-1.5 rounded ${isActive ? 'bg-white/15 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}">${exp.category.split(' ')[0]}</span>
+                        </div>
+                        <p class="text-xs font-semibold truncate mt-0.5">${exp.title}</p>
+                    </div>
+                `;
+                nav.appendChild(btn);
+            });
+        }
+
+        document.getElementById('exp-search').addEventListener('input', (e) => renderSidebar(e.target.value));
+
+        function destroyCharts() {
+            activeCharts.forEach(c => { try { c.destroy(); } catch (e) { } });
+            activeCharts = [];
+        }
+
+        function getChartThemeColors() {
+            const isDark = document.documentElement.classList.contains('dark');
+            return {
+                text: isDark ? '#cbd5e1' : '#334155',
+                grid: isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(15, 23, 42, 0.08)'
+            };
+        }
+
+        function selectExperiment(expId) {
+            activeExpId = expId;
+            destroyCharts();
+            renderSidebar(document.getElementById('exp-search').value);
+
+            const exp = EXPERIMENTS.find(e => e.id === expId);
+            const workspace = document.getElementById('workspace');
+
+            if (expId === 'viva') {
+                renderVivaView(exp, workspace);
+                return;
+            }
+
+            workspace.innerHTML = `
+                <!-- Experiment Header -->
+                <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
+                    <div class="flex flex-wrap items-center justify-between gap-4">
+                        <div>
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="px-2.5 py-0.5 text-xs font-bold rounded-full bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-300">${exp.no}</span>
+                                <span class="text-xs font-medium text-slate-500 dark:text-slate-400">${exp.category}</span>
+                            </div>
+                            <h2 class="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">${exp.title}</h2>
+                            <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">${exp.subtitle}</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button onclick="openStudentModal()" class="px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition">
+                                <i class="fas fa-user-edit mr-1 text-sky-600"></i> ${studentInfo.name}
+                            </button>
+                            <button onclick="generateLabPDF()" class="px-4 py-2 text-xs font-semibold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow transition">
+                                <i class="fas fa-download mr-1"></i> Export PDF
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                        <div class="lg:col-span-2 bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3.5">
+                            <h3 class="text-xs font-bold uppercase tracking-wider text-sky-700 dark:text-sky-400 mb-1">Aim</h3>
+                            <p class="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">${exp.aim}</p>
+                            <details class="mt-2">
+                                <summary class="text-xs font-semibold text-indigo-600 dark:text-indigo-400 cursor-pointer">View Lab Procedure</summary>
+                                <ol class="mt-1.5 space-y-1 text-xs text-slate-600 dark:text-slate-300 list-decimal list-inside">
+                                    ${exp.procedure.map(s => `<li>${s}</li>`).join('')}
+                                </ol>
+                            </details>
+                        </div>
+                        <div class="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3.5">
+                            <h3 class="text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 mb-1">Equipments Required</h3>
+                            <ul class="space-y-1 text-xs text-slate-700 dark:text-slate-300">
+                                ${exp.apparatus.map(a => `<li class="flex items-start gap-1.5"><i class="fas fa-check text-[10px] text-emerald-500 mt-1"></i><span>${a}</span></li>`).join('')}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Interactive 3D Process Rig + Control Console Section -->
+                <div class="grid grid-cols-1 xl:grid-cols-12 gap-6">
+                    <!-- 3D Viewport Card -->
+                    <div class="xl:col-span-7 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm flex flex-col">
+                        <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 bg-slate-50/70 dark:bg-slate-800/40">
+                            <div class="flex items-center gap-2">
+                                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                <span class="text-xs font-bold text-slate-800 dark:text-white">Interactive 3D Equipment Rig</span>
+                                <span class="text-[10px] text-slate-500 hidden sm:inline">(Drag to Rotate • Scroll to Zoom • Click Valves)</span>
+                            </div>
+                            <div class="flex items-center gap-1">
+                                <button onclick="setCameraPreset('iso')" class="px-2 py-1 text-[10px] font-semibold rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-sky-50">Iso</button>
+                                <button onclick="setCameraPreset('front')" class="px-2 py-1 text-[10px] font-semibold rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-sky-50">Front</button>
+                                <button onclick="setCameraPreset('top')" class="px-2 py-1 text-[10px] font-semibold rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-sky-50">Top</button>
+                                <button onclick="setCameraPreset('valve')" class="px-2 py-1 text-[10px] font-semibold rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-sky-50">Valve</button>
+                            </div>
+                        </div>
+                        <div id="three-canvas-wrapper" class="relative w-full h-[360px] sm:h-[420px]">
+                            <div id="three-callout-layer" class="absolute inset-0 pointer-events-none overflow-hidden"></div>
+                        </div>
+                    </div>
+
+                    <!-- Experiment Control Console Card -->
+                    <div id="exp-control-console" class="xl:col-span-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm flex flex-col justify-between">
+                        <!-- Injected by specific experiment -->
+                    </div>
+                </div>
+
+                <!-- Graph, Calculations, Expected Results & Observation Table -->
+                <div id="exp-analytics-body" class="space-y-6"></div>
+            `;
+
+            // Initialize / Re-attach Three.js Canvas and Build 3D Rig
+            initThreeEngine(document.getElementById('three-canvas-wrapper'));
+            build3DRigForExperiment(expId);
+
+            const consoleEl = document.getElementById('exp-control-console');
+            const analyticsEl = document.getElementById('exp-analytics-body');
+
+            switch (expId) {
+                case 'exp1': renderExp1(consoleEl, analyticsEl); break;
+                case 'exp2': renderExp2(consoleEl, analyticsEl); break;
+                case 'exp3': renderExp3(consoleEl, analyticsEl); break;
+                case 'exp4': renderClosedLoopCalibration(consoleEl, analyticsEl, 'level'); break;
+                case 'exp5': renderClosedLoopCalibration(consoleEl, analyticsEl, 'flow'); break;
+                case 'exp6': renderClosedLoopCalibration(consoleEl, analyticsEl, 'pressure'); break;
+                case 'exp7': renderTuningExperiment(consoleEl, analyticsEl, 'level'); break;
+                case 'exp8': renderTuningExperiment(consoleEl, analyticsEl, 'flow'); break;
+                case 'exp9': renderTuningExperiment(consoleEl, analyticsEl, 'thermal'); break;
+                case 'exp10': renderTuningExperiment(consoleEl, analyticsEl, 'pressure'); break;
+                case 'exp11': renderExp11(consoleEl, analyticsEl); break;
+                case 'exp12': renderExp12(consoleEl, analyticsEl); break;
+                case 'exp13': renderExp13(consoleEl, analyticsEl); break;
+                case 'exp14': renderExp14(consoleEl, analyticsEl); break;
+                case 'exp15': renderClosedLoopCalibration(consoleEl, analyticsEl, 'thermal'); break;
+            }
+        }
+
+        // =========================================================================
+        // 5. EXPERIMENT 01: FIRST ORDER LIQUID LEVEL SYSTEM
+        // =========================================================================
+        function renderExp1(consoleEl, analyticsEl) {
+            consoleEl.innerHTML = `
+                <div>
+                    <h3 class="text-sm font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                        <i class="fas fa-sliders-h text-sky-600"></i> 3D Process Flow & Tank Console
+                    </h3>
+                    <div class="space-y-4">
+                        <div>
+                            <div class="flex justify-between text-xs font-medium mb-1">
+                                <span>Initial Steady Flow (X)</span>
+                                <span class="font-mono font-bold text-sky-600"><span id="e1-x-val">100</span> LPH</span>
+                            </div>
+                            <input type="range" id="e1-x" min="50" max="200" step="10" value="100" class="w-full accent-sky-600" oninput="updateExp1()">
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs font-medium mb-1">
+                                <span>Step Increased Flow (Y)</span>
+                                <span class="font-mono font-bold text-emerald-600"><span id="e1-y-val">250</span> LPH</span>
+                            </div>
+                            <input type="range" id="e1-y" min="150" max="450" step="10" value="250" class="w-full accent-emerald-600" oninput="updateExp1()">
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs font-medium mb-1">
+                                <span>Tank Area (C)</span>
+                                <span class="font-mono font-bold text-indigo-600"><span id="e1-c-val">400</span> cm²</span>
+                            </div>
+                            <input type="range" id="e1-c" min="200" max="800" step="25" value="400" class="w-full accent-indigo-600" oninput="updateExp1()">
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs font-medium mb-1">
+                                <span>Outlet Valve Resistance (R)</span>
+                                <span class="font-mono font-bold text-amber-600"><span id="e1-r-val">0.08</span> s/cm²</span>
+                            </div>
+                            <input type="range" id="e1-r" min="0.04" max="0.16" step="0.01" value="0.08" class="w-full accent-amber-600" oninput="updateExp1()">
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-5 pt-4 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 gap-3 font-mono">
+                    <div class="bg-sky-50 dark:bg-sky-950/50 p-3 rounded-xl">
+                        <span class="text-[10px] uppercase text-sky-600 block">Time Constant (τ)</span>
+                        <b id="e1-res-tau" class="text-base text-slate-900 dark:text-white">32.00 s</b>
+                    </div>
+                    <div class="bg-emerald-50 dark:bg-emerald-950/50 p-3 rounded-xl">
+                        <span class="text-[10px] uppercase text-emerald-600 block">Resistance (R)</span>
+                        <b id="e1-res-r" class="text-base text-slate-900 dark:text-white">800 s/m²</b>
+                    </div>
+                </div>
+            `;
+
+            analyticsEl.innerHTML = `
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    <div class="lg:col-span-7 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
+                        <h3 class="text-sm font-bold mb-3">Step Response Graph: Tank Level h(t) vs Time (sec)</h3>
+                        <div class="relative h-64 w-full"><canvas id="chart-exp1"></canvas></div>
+                    </div>
+                    <div class="lg:col-span-5 flex flex-col justify-between gap-4">
+                        <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
+                            <h4 class="text-xs font-bold uppercase tracking-wider text-indigo-600 mb-2">Step-by-Step Calculation</h4>
+                            <div id="e1-calc-box" class="space-y-1.5 text-xs font-mono bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl"></div>
+                        </div>
+                        <div class="bg-gradient-to-br from-sky-600 to-indigo-700 text-white rounded-2xl p-5 shadow-md">
+                            <h4 class="text-xs font-bold uppercase tracking-wider text-sky-200 mb-1">Expected Result</h4>
+                            <p class="text-xs mb-2">First-order liquid level step response verified via 63.2% method:</p>
+                            <div id="e1-tf-box" class="text-xs font-mono bg-white/15 p-2.5 rounded-lg"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
+                    <h3 class="text-sm font-bold mb-3">Observation Table</h3>
+                    <div class="overflow-x-auto max-h-60">
+                        <table class="w-full text-xs text-left border-collapse font-mono">
+                            <thead class="bg-slate-100 dark:bg-slate-800 sticky top-0">
+                                <tr><th class="p-2 border dark:border-slate-700">S.No.</th><th class="p-2 border dark:border-slate-700">Time (sec)</th><th class="p-2 border dark:border-slate-700">Level h(t) (cm)</th><th class="p-2 border dark:border-slate-700">% Response</th></tr>
+                            </thead>
+                            <tbody id="e1-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+            updateExp1();
+        }
+
+        function updateExp1() {
+            const X = parseFloat(document.getElementById('e1-x').value);
+            let Y = parseFloat(document.getElementById('e1-y').value);
+            if (Y <= X) { Y = X + 50; document.getElementById('e1-y').value = Y; }
+            const C = parseFloat(document.getElementById('e1-c').value);
+            const R_cm = parseFloat(document.getElementById('e1-r').value);
+
+            document.getElementById('e1-x-val').textContent = X;
+            document.getElementById('e1-y-val').textContent = Y;
+            document.getElementById('e1-c-val').textContent = C;
+            document.getElementById('e1-r-val').textContent = R_cm.toFixed(2);
+
+            const qX = (X * 1000) / 3600;
+            const qY = (Y * 1000) / 3600;
+            const h0 = qX * R_cm;
+            const hInf = qY * R_cm;
+            const tau = R_cm * C;
+            const h632 = h0 + 0.632 * (hInf - h0);
+            const R_SI = R_cm * 10000;
+
+            // Update 3D Rig Live Parameters & Callouts
+            threeLab.animState.flowLPH = Y;
+            threeLab.animState.h1Frac = Math.min(0.92, hInf / 35);
+            const cFlow = threeLab.callouts.find(c => c.id === 'flow');
+            const cLvl = threeLab.callouts.find(c => c.id === 'lvl1');
+            if (cFlow) cFlow.liveText = `Inflow: ${Y} LPH`;
+            if (cLvl) cLvl.liveText = `Steady h∞: ${hInf.toFixed(1)} cm`;
+
+            const totalTime = Math.ceil((tau * 4.5) / 10) * 10;
+            const dt = Math.max(2, Math.round(totalTime / 20));
+            const labels = [], dataH = [], data632 = [], rows = [];
+            let sno = 1;
+            for (let t = 0; t <= totalTime; t += dt) {
+                const h = h0 + (hInf - h0) * (1 - Math.exp(-t / tau));
+                const pct = ((h - h0) / (hInf - h0)) * 100;
+                labels.push(t);
+                dataH.push(Number(h.toFixed(2)));
+                data632.push(Number(h632.toFixed(2)));
+                rows.push([sno++, t, h.toFixed(2), pct.toFixed(1) + '%']);
+            }
+
+            document.getElementById('e1-table-body').innerHTML = rows.map(r => `
+                <tr><td class="p-2 border dark:border-slate-700">${r[0]}</td><td class="p-2 border dark:border-slate-700">${r[1]}</td><td class="p-2 border dark:border-slate-700 text-sky-600 font-semibold">${r[2]}</td><td class="p-2 border dark:border-slate-700">${r[3]}</td></tr>
+            `).join('');
+
+            document.getElementById('e1-res-tau').textContent = `${tau.toFixed(2)} sec`;
+            document.getElementById('e1-res-r').textContent = `${R_SI.toFixed(0)} s/m²`;
+            document.getElementById('e1-tf-box').textContent = `G(s) = ${R_SI.toFixed(0)} / (${tau.toFixed(1)}s + 1)`;
+
+            const calcLines = [
+                `1. Initial Level h₀ (${X} LPH) = ${h0.toFixed(2)} cm`,
+                `2. Final Level h∞ (${Y} LPH) = ${hInf.toFixed(2)} cm`,
+                `3. 63.2% Level = ${h632.toFixed(2)} cm`,
+                `4. Time Constant τ = R × C = ${tau.toFixed(2)} sec`,
+                `5. Resistance R = ${R_SI.toFixed(0)} s/m²`
+            ];
+            document.getElementById('e1-calc-box').innerHTML = calcLines.map(l => `<div>${l}</div>`).join('');
+
+            destroyCharts();
+            const colors = getChartThemeColors();
+            const chart = new Chart(document.getElementById('chart-exp1').getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        { label: 'Level h(t) [cm]', data: dataH, borderColor: '#0284c7', backgroundColor: 'rgba(2,132,199,0.15)', fill: true, tension: 0.35 },
+                        { label: `63.2% Level (${h632.toFixed(2)} cm)`, data: data632, borderColor: '#ef4444', borderDash: [6, 4], pointRadius: 0 }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: colors.text } } },
+                    scales: {
+                        x: { title: { display: true, text: 'Time (sec)', color: colors.text }, ticks: { color: colors.text }, grid: { color: colors.grid } },
+                        y: { title: { display: true, text: 'Height (cm)', color: colors.text }, ticks: { color: colors.text }, grid: { color: colors.grid } }
+                    }
+                }
+            });
+            activeCharts.push(chart);
+
+            currentSimulationData = {
+                parameters: `Initial Flow X = ${X} LPH | Step Flow Y = ${Y} LPH | Area C = ${C} cm²`,
+                headers: ['S.No.', 'Time (sec)', 'Level h(t) (cm)', '% Response'],
+                rows, calculations: calcLines,
+                result: `(i) Time constant for level process tank τ = ${tau.toFixed(2)} sec\n(ii) Resistance for level process tank R = ${R_SI.toFixed(0)} s/m²`,
+                chartCanvasId: 'chart-exp1'
+            };
+        }
+
+        // =========================================================================
+        // 6. EXPERIMENT 02: NON-INTERACTING TWO-TANK LEVEL SYSTEM
+        // =========================================================================
+        function renderExp2(consoleEl, analyticsEl) {
+            consoleEl.innerHTML = `
+                <div>
+                    <h3 class="text-sm font-bold mb-4 flex items-center gap-2"><i class="fas fa-sliders-h text-sky-600"></i> 3D Non-Interacting Cascade Controls</h3>
+                    <div class="space-y-3.5">
+                        <div><div class="flex justify-between text-xs mb-1"><span>Initial Flow (X)</span><span class="font-mono font-bold text-sky-600"><span id="e2-x-val">100</span> LPH</span></div><input type="range" id="e2-x" min="50" max="180" step="10" value="100" class="w-full accent-sky-600" oninput="updateExp2()"></div>
+                        <div><div class="flex justify-between text-xs mb-1"><span>Step Flow (Y)</span><span class="font-mono font-bold text-emerald-600"><span id="e2-y-val">260</span> LPH</span></div><input type="range" id="e2-y" min="160" max="450" step="10" value="260" class="w-full accent-emerald-600" oninput="updateExp2()"></div>
+                        <div><div class="flex justify-between text-xs mb-1"><span>Tank 1 Time Constant (τ₁)</span><span class="font-mono font-bold text-indigo-600"><span id="e2-t1-val">25</span> sec</span></div><input type="range" id="e2-t1" min="10" max="60" step="5" value="25" class="w-full accent-indigo-600" oninput="updateExp2()"></div>
+                        <div><div class="flex justify-between text-xs mb-1"><span>Tank 2 Time Constant (τ₂)</span><span class="font-mono font-bold text-amber-600"><span id="e2-t2-val">40</span> sec</span></div><input type="range" id="e2-t2" min="15" max="80" step="5" value="40" class="w-full accent-amber-600" oninput="updateExp2()"></div>
+                    </div>
+                </div>
+                <div id="e2-res-box" class="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 gap-2 text-xs font-mono"></div>
+            `;
+            analyticsEl.innerHTML = `
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    <div class="lg:col-span-7 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
+                        <h3 class="text-sm font-bold mb-3">Tank 1 (h₁) & Tank 2 (h₂) Step Response</h3>
+                        <div class="relative h-64 w-full"><canvas id="chart-exp2"></canvas></div>
+                    </div>
+                    <div class="lg:col-span-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
+                        <h4 class="text-xs font-bold uppercase tracking-wider text-indigo-600 mb-3">Calculations & Results</h4>
+                        <div id="e2-calc-box" class="space-y-2 text-xs font-mono bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-xl"></div>
+                    </div>
+                </div>
+                <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
+                    <h3 class="text-sm font-bold mb-3">Observation Table</h3>
+                    <div class="overflow-x-auto max-h-60">
+                        <table class="w-full text-xs text-left border-collapse font-mono">
+                            <thead class="bg-slate-100 dark:bg-slate-800 sticky top-0"><tr><th class="p-2 border dark:border-slate-700">S.No.</th><th class="p-2 border dark:border-slate-700">Time (sec)</th><th class="p-2 border dark:border-slate-700">Tank 1 h₁ (cm)</th><th class="p-2 border dark:border-slate-700">Tank 2 h₂ (cm)</th></tr></thead>
+                            <tbody id="e2-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+            updateExp2();
+        }
+
+        function updateExp2() {
+            const X = parseFloat(document.getElementById('e2-x').value);
+            let Y = parseFloat(document.getElementById('e2-y').value);
+            if (Y <= X) { Y = X + 50; document.getElementById('e2-y').value = Y; }
+            const tau1 = parseFloat(document.getElementById('e2-t1').value);
+            const tau2 = parseFloat(document.getElementById('e2-t2').value);
+
+            document.getElementById('e2-x-val').textContent = X;
+            document.getElementById('e2-y-val').textContent = Y;
+            document.getElementById('e2-t1-val').textContent = tau1;
+            document.getElementById('e2-t2-val').textContent = tau2;
+
+            const C = 400, R1 = tau1 / C, R2 = tau2 / C;
+            const qX = (X * 1000) / 3600, qY = (Y * 1000) / 3600;
+            const h1_0 = qX * R1, h1_inf = qY * R1, h2_0 = qX * R2, h2_inf = qY * R2;
+
+            threeLab.animState.flowLPH = Y;
+            threeLab.animState.h1Frac = Math.min(0.92, h1_inf / 25);
+            threeLab.animState.h2Frac = Math.min(0.92, h2_inf / 25);
+            const c1 = threeLab.callouts.find(c => c.id === 'lvl1');
+            const c2 = threeLab.callouts.find(c => c.id === 'lvl2');
+            if (c1) c1.liveText = `Tank 1: ${h1_inf.toFixed(1)} cm`;
+            if (c2) c2.liveText = `Tank 2: ${h2_inf.toFixed(1)} cm`;
+
+            const totalTime = Math.ceil(((tau1 + tau2) * 3.5) / 10) * 10;
+            const dt = Math.max(5, Math.round(totalTime / 18));
+            const labels = [], dataH1 = [], dataH2 = [], rows = [];
+            let sno = 1;
+            for (let t = 0; t <= totalTime; t += dt) {
+                const h1 = h1_0 + (h1_inf - h1_0) * (1 - Math.exp(-t / tau1));
+                const frac2 = Math.abs(tau1 - tau2) < 0.01 ? 1 - (1 + t / tau1) * Math.exp(-t / tau1) : 1 - ((tau1 * Math.exp(-t / tau1) - tau2 * Math.exp(-t / tau2)) / (tau1 - tau2));
+                const h2 = h2_0 + (h2_inf - h2_0) * frac2;
+                labels.push(t); dataH1.push(Number(h1.toFixed(2))); dataH2.push(Number(h2.toFixed(2)));
+                rows.push([sno++, t, h1.toFixed(2), h2.toFixed(2)]);
+            }
+
+            document.getElementById('e2-table-body').innerHTML = rows.map(r => `<tr><td class="p-2 border dark:border-slate-700">${r[0]}</td><td class="p-2 border dark:border-slate-700">${r[1]}</td><td class="p-2 border dark:border-slate-700 text-sky-600 font-semibold">${r[2]}</td><td class="p-2 border dark:border-slate-700 text-emerald-600 font-semibold">${r[3]}</td></tr>`).join('');
+            const calcLines = [`• τ₁ = ${tau1} s, R₁ = ${(R1 * 10000).toFixed(0)} s/m²`, `• τ₂ = ${tau2} s, R₂ = ${(R2 * 10000).toFixed(0)} s/m²`, `• h₁∞ = ${h1_inf.toFixed(2)} cm, h₂∞ = ${h2_inf.toFixed(2)} cm`];
+            document.getElementById('e2-calc-box').innerHTML = calcLines.map(l => `<div>${l}</div>`).join('');
+            document.getElementById('e2-res-box').innerHTML = `
+                <div class="bg-sky-50 dark:bg-sky-950/50 p-2.5 rounded-xl">τ₁ = <b>${tau1} s</b></div>
+                <div class="bg-emerald-50 dark:bg-emerald-950/50 p-2.5 rounded-xl">τ₂ = <b>${tau2} s</b></div>
+                <div class="bg-indigo-50 dark:bg-indigo-950/50 p-2.5 rounded-xl">R₁ = <b>${(R1 * 10000).toFixed(0)} s/m²</b></div>
+                <div class="bg-amber-50 dark:bg-amber-950/50 p-2.5 rounded-xl">R₂ = <b>${(R2 * 10000).toFixed(0)} s/m²</b></div>
+            `;
+
+            destroyCharts();
+            const colors = getChartThemeColors();
+            activeCharts.push(new Chart(document.getElementById('chart-exp2').getContext('2d'), {
+                type: 'line',
+                data: { labels, datasets: [{ label: 'Tank 1 h₁ (cm)', data: dataH1, borderColor: '#0284c7', tension: 0.35 }, { label: 'Tank 2 h₂ (cm)', data: dataH2, borderColor: '#10b981', tension: 0.35 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: colors.text } } }, scales: { x: { ticks: { color: colors.text }, grid: { color: colors.grid } }, y: { ticks: { color: colors.text }, grid: { color: colors.grid } } } }
+            }));
+
+            currentSimulationData = { parameters: `X=${X} LPH, Y=${Y} LPH`, headers: ['S.No.', 'Time (s)', 'h₁ (cm)', 'h₂ (cm)'], rows, calculations: calcLines, result: `τ₁=${tau1}s, τ₂=${tau2}s, R₁=${(R1 * 10000).toFixed(0)} s/m², R₂=${(R2 * 10000).toFixed(0)} s/m²`, chartCanvasId: 'chart-exp2' };
+        }
+
+        // =========================================================================
+        // 7. EXPERIMENT 03: INTERACTING TWO-TANK LEVEL SYSTEM
+        // =========================================================================
+        function renderExp3(consoleEl, analyticsEl) {
+            consoleEl.innerHTML = `
+                <div>
+                    <h3 class="text-sm font-bold mb-4 flex items-center gap-2"><i class="fas fa-sliders-h text-indigo-600"></i> 3D Interacting Tank Controls</h3>
+                    <div class="space-y-3.5">
+                        <div><div class="flex justify-between text-xs mb-1"><span>Initial Flow (X)</span><span class="font-mono font-bold text-sky-600"><span id="e3-x-val">100</span> LPH</span></div><input type="range" id="e3-x" min="50" max="180" step="10" value="100" class="w-full accent-sky-600" oninput="updateExp3()"></div>
+                        <div><div class="flex justify-between text-xs mb-1"><span>Step Flow (Y)</span><span class="font-mono font-bold text-emerald-600"><span id="e3-y-val">260</span> LPH</span></div><input type="range" id="e3-y" min="160" max="450" step="10" value="260" class="w-full accent-emerald-600" oninput="updateExp3()"></div>
+                        <div><div class="flex justify-between text-xs mb-1"><span>Nominal τ₁</span><span class="font-mono font-bold text-indigo-600"><span id="e3-t1-val">25</span> sec</span></div><input type="range" id="e3-t1" min="15" max="60" step="5" value="25" class="w-full accent-indigo-600" oninput="updateExp3()"></div>
+                        <div><div class="flex justify-between text-xs mb-1"><span>Nominal τ₂</span><span class="font-mono font-bold text-amber-600"><span id="e3-t2-val">35</span> sec</span></div><input type="range" id="e3-t2" min="15" max="60" step="5" value="35" class="w-full accent-amber-600" oninput="updateExp3()"></div>
+                    </div>
+                </div>
+                <div id="e3-res-box" class="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 gap-2 text-xs font-mono"></div>
+            `;
+            analyticsEl.innerHTML = `
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    <div class="lg:col-span-7 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
+                        <h3 class="text-sm font-bold mb-3">Interacting Tank Response: h₁(t) & h₂(t)</h3>
+                        <div class="relative h-64 w-full"><canvas id="chart-exp3"></canvas></div>
+                    </div>
+                    <div class="lg:col-span-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
+                        <h4 class="text-xs font-bold uppercase tracking-wider text-indigo-600 mb-3">Coupled Loading Analysis</h4>
+                        <div id="e3-calc-box" class="space-y-2 text-xs font-mono bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-xl"></div>
+                    </div>
+                </div>
+                <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
+                    <h3 class="text-sm font-bold mb-3">Observation Table</h3>
+                    <div class="overflow-x-auto max-h-60">
+                        <table class="w-full text-xs text-left border-collapse font-mono">
+                            <thead class="bg-slate-100 dark:bg-slate-800 sticky top-0"><tr><th class="p-2 border dark:border-slate-700">S.No.</th><th class="p-2 border dark:border-slate-700">Time (sec)</th><th class="p-2 border dark:border-slate-700">Tank 1 h₁ (cm)</th><th class="p-2 border dark:border-slate-700">Tank 2 h₂ (cm)</th></tr></thead>
+                            <tbody id="e3-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+            updateExp3();
+        }
+
+        function updateExp3() {
+            const X = parseFloat(document.getElementById('e3-x').value);
+            let Y = parseFloat(document.getElementById('e3-y').value);
+            if (Y <= X) { Y = X + 50; document.getElementById('e3-y').value = Y; }
+            const t1 = parseFloat(document.getElementById('e3-t1').value);
+            const t2 = parseFloat(document.getElementById('e3-t2').value);
+
+            document.getElementById('e3-x-val').textContent = X;
+            document.getElementById('e3-y-val').textContent = Y;
+            document.getElementById('e3-t1-val').textContent = t1;
+            document.getElementById('e3-t2-val').textContent = t2;
+
+            const C = 400, R1 = t1 / C, R2 = t2 / C;
+            const qX = (X * 1000) / 3600, qY = (Y * 1000) / 3600;
+            const h1_0 = qX * (R1 + R2), h1_inf = qY * (R1 + R2);
+            const h2_0 = qX * R2, h2_inf = qY * R2;
+
+            const b = t1 + 2 * t2, ac = t1 * t2, disc = Math.sqrt(b * b - 4 * ac);
+            const tauEff1 = (b + disc) / 2, tauEff2 = (b - disc) / 2;
+
+            threeLab.animState.flowLPH = Y;
+            threeLab.animState.h1Frac = Math.min(0.92, h1_inf / 35);
+            threeLab.animState.h2Frac = Math.min(0.92, h2_inf / 35);
+            const c1 = threeLab.callouts.find(c => c.id === 'lvl1');
+            const c2 = threeLab.callouts.find(c => c.id === 'lvl2');
+            if (c1) c1.liveText = `Tank 1: ${h1_inf.toFixed(1)} cm`;
+            if (c2) c2.liveText = `Tank 2: ${h2_inf.toFixed(1)} cm`;
+
+            const totalTime = Math.ceil((tauEff1 * 3.5) / 10) * 10;
+            const dt = Math.max(5, Math.round(totalTime / 18));
+            const labels = [], dataH1 = [], dataH2 = [], rows = [];
+            let h1 = h1_0, h2 = h2_0, nextSample = 0, sno = 1;
+            for (let t = 0; t <= totalTime + 0.1; t += 0.2) {
+                if (t >= nextSample - 0.05) {
+                    labels.push(Math.round(nextSample));
+                    dataH1.push(Number(h1.toFixed(2)));
+                    dataH2.push(Number(h2.toFixed(2)));
+                    rows.push([sno++, Math.round(nextSample), h1.toFixed(2), h2.toFixed(2)]);
+                    nextSample += dt;
+                }
+                const q12 = (h1 - h2) / R1;
+                h1 += ((qY - q12) / C) * 0.2;
+                h2 += ((q12 - h2 / R2) / C) * 0.2;
+            }
+
+            document.getElementById('e3-table-body').innerHTML = rows.map(r => `<tr><td class="p-2 border dark:border-slate-700">${r[0]}</td><td class="p-2 border dark:border-slate-700">${r[1]}</td><td class="p-2 border dark:border-slate-700 text-indigo-600 font-semibold">${r[2]}</td><td class="p-2 border dark:border-slate-700 text-emerald-600 font-semibold">${r[3]}</td></tr>`).join('');
+            const calcLines = [`• Effective Slow τ_eff1 = ${tauEff1.toFixed(2)} sec`, `• Effective Fast τ_eff2 = ${tauEff2.toFixed(2)} sec`, `• R₁ = ${(R1 * 10000).toFixed(0)} s/m², R₂ = ${(R2 * 10000).toFixed(0)} s/m²`];
+            document.getElementById('e3-calc-box').innerHTML = calcLines.map(l => `<div>${l}</div>`).join('');
+            document.getElementById('e3-res-box').innerHTML = `
+                <div class="bg-indigo-50 dark:bg-indigo-950/50 p-2.5 rounded-xl">τ_eff1 = <b>${tauEff1.toFixed(1)} s</b></div>
+                <div class="bg-emerald-50 dark:bg-emerald-950/50 p-2.5 rounded-xl">τ_eff2 = <b>${tauEff2.toFixed(1)} s</b></div>
+                <div class="bg-sky-50 dark:bg-sky-950/50 p-2.5 rounded-xl">R₁ = <b>${(R1 * 10000).toFixed(0)} s/m²</b></div>
+                <div class="bg-amber-50 dark:bg-amber-950/50 p-2.5 rounded-xl">R₂ = <b>${(R2 * 10000).toFixed(0)} s/m²</b></div>
+            `;
+
+            destroyCharts();
+            const colors = getChartThemeColors();
+            activeCharts.push(new Chart(document.getElementById('chart-exp3').getContext('2d'), {
+                type: 'line',
+                data: { labels, datasets: [{ label: 'Tank 1 h₁ (cm)', data: dataH1, borderColor: '#4f46e5', tension: 0.35 }, { label: 'Tank 2 h₂ (cm)', data: dataH2, borderColor: '#10b981', tension: 0.35 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: colors.text } } }, scales: { x: { ticks: { color: colors.text }, grid: { color: colors.grid } }, y: { ticks: { color: colors.text }, grid: { color: colors.grid } } } }
+            }));
+
+            currentSimulationData = { parameters: `X=${X} LPH, Y=${Y} LPH`, headers: ['S.No.', 'Time (s)', 'h₁ (cm)', 'h₂ (cm)'], rows, calculations: calcLines, result: `τ_eff1=${tauEff1.toFixed(2)}s, τ_eff2=${tauEff2.toFixed(2)}s, R₁=${(R1 * 10000).toFixed(0)} s/m², R₂=${(R2 * 10000).toFixed(0)} s/m²`, chartCanvasId: 'chart-exp3' };
+        }
+
+        // =========================================================================
+        // 8. EXPERIMENTS 04, 05, 06 & 15: CLOSED LOOP CALIBRATION STUDIES
+        // =========================================================================
+        function renderClosedLoopCalibration(consoleEl, analyticsEl, domain) {
+            const configs = {
+                level: { varName: 'Level', unit: 'cm', min: 0, max: 30, step: 5, points: [0, 5, 10, 15, 20, 25, 30], nonlinear: false },
+                flow: { varName: 'Flow Rate', unit: 'LPH', min: 0, max: 500, step: 100, points: [0, 100, 200, 300, 400, 500], nonlinear: true },
+                pressure: { varName: 'Pressure', unit: 'Psi', min: 0, max: 50, step: 10, points: [0, 10, 20, 30, 40, 50], nonlinear: true },
+                thermal: { varName: 'Temperature', unit: '°C', min: 30, max: 90, step: 10, points: [30, 40, 50, 60, 70, 80, 90], nonlinear: false }
+            };
+            const cfg = configs[domain];
+
+            consoleEl.innerHTML = `
+                <div class="space-y-4">
+                    <h3 class="text-sm font-bold flex items-center gap-2"><i class="fas fa-microchip text-sky-600"></i> 3D Loop Hardware Calibration</h3>
+                    <div class="bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-xl">
+                        <div class="flex justify-between text-xs font-bold mb-1.5"><span>Part A: ${cfg.varName} Input</span><span class="font-mono text-sky-600"><span id="cl-pv-val">${cfg.points[2]}</span> ${cfg.unit}</span></div>
+                        <input type="range" id="cl-pv-slider" min="${cfg.min}" max="${cfg.max}" step="${cfg.step}" value="${cfg.points[2]}" class="w-full accent-sky-600" oninput="updateClosedLoop('${domain}')">
+                        <div class="mt-2 grid grid-cols-2 gap-2 text-xs font-mono">
+                            <div>Tx Output X: <b id="cl-tx-out" class="text-sky-600">--</b></div>
+                            <div>${cfg.nonlinear ? '4+4√(X-4):' : 'Linearity:'} <b id="cl-tx-lin" class="text-emerald-600">--</b></div>
+                        </div>
+                    </div>
+                    <div class="bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-xl">
+                        <div class="flex justify-between text-xs font-bold mb-1.5"><span>Part B: Manual Mode %</span><span class="font-mono text-indigo-600"><span id="cl-man-val">50</span>%</span></div>
+                        <input type="range" id="cl-man-slider" min="0" max="100" step="25" value="50" class="w-full accent-indigo-600" oninput="updateClosedLoop('${domain}')">
+                        <div class="mt-2 grid grid-cols-3 gap-1.5 text-xs font-mono">
+                            <div>DAC: <b id="cl-dac-out" class="text-indigo-600">--</b></div>
+                            <div>I/P: <b id="cl-ip-out" class="text-amber-600">--</b></div>
+                            <div>Valve: <b id="cl-vlv-out" class="text-emerald-600">--</b></div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            analyticsEl.innerHTML = `
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
+                        <h4 class="text-xs font-bold uppercase text-sky-600 mb-3">Graph 1: ${cfg.varName} vs Transmitter Output (mA)</h4>
+                        <div class="relative h-60 w-full"><canvas id="chart-cl-a"></canvas></div>
+                    </div>
+                    <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
+                        <h4 class="text-xs font-bold uppercase text-indigo-600 mb-3">Graph 2: Manual Mode (%) vs DAC, I/P & Valve (%)</h4>
+                        <div class="relative h-60 w-full"><canvas id="chart-cl-b"></canvas></div>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
+                        <h4 class="text-xs font-bold uppercase mb-2">Table 1: ${cfg.varName} Transmitter</h4>
+                        <table class="w-full text-xs border-collapse font-mono"><thead class="bg-slate-100 dark:bg-slate-800"><tr><th class="p-2 border dark:border-slate-700">S.No</th><th class="p-2 border dark:border-slate-700">${cfg.varName}</th><th class="p-2 border dark:border-slate-700">Tx X (mA)</th><th class="p-2 border dark:border-slate-700">4+4√(X-4)</th></tr></thead><tbody id="cl-table-a"></tbody></table>
+                    </div>
+                    <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
+                        <h4 class="text-xs font-bold uppercase mb-2">Table 2: DAC, I/P & Control Valve</h4>
+                        <table class="w-full text-xs border-collapse font-mono"><thead class="bg-slate-100 dark:bg-slate-800"><tr><th class="p-2 border dark:border-slate-700">S.No</th><th class="p-2 border dark:border-slate-700">Manual%</th><th class="p-2 border dark:border-slate-700">DAC (mA)</th><th class="p-2 border dark:border-slate-700">I/P (psi)</th><th class="p-2 border dark:border-slate-700">Valve%</th></tr></thead><tbody id="cl-table-b"></tbody></table>
+                    </div>
+                </div>
+            `;
+            updateClosedLoop(domain);
+        }
+
+        function updateClosedLoop(domain) {
+            const configs = {
+                level: { varName: 'Level', unit: 'cm', min: 0, max: 30, points: [0, 5, 10, 15, 20, 25, 30], nonlinear: false },
+                flow: { varName: 'Flow', unit: 'LPH', min: 0, max: 500, points: [0, 100, 200, 300, 400, 500], nonlinear: true },
+                pressure: { varName: 'Pressure', unit: 'Psi', min: 0, max: 50, points: [0, 10, 20, 30, 40, 50], nonlinear: true },
+                thermal: { varName: 'Temperature', unit: '°C', min: 30, max: 90, points: [30, 40, 50, 60, 70, 80, 90], nonlinear: false }
+            };
+            const cfg = configs[domain];
+            const pv = parseFloat(document.getElementById('cl-pv-slider').value);
+            const man = parseFloat(document.getElementById('cl-man-slider').value);
+            document.getElementById('cl-pv-val').textContent = pv;
+            document.getElementById('cl-man-val').textContent = man;
+
+            const norm = (pv - cfg.min) / (cfg.max - cfg.min);
+            const txOut = cfg.nonlinear ? (4 + 16 * norm * norm) : (4 + 16 * norm);
+            const txLin = 4 + 4 * Math.sqrt(Math.max(0, txOut - 4));
+            const dac = 4 + 0.16 * man, ip = 3 + 0.12 * man;
+
+            document.getElementById('cl-tx-out').textContent = `${txOut.toFixed(2)} mA`;
+            document.getElementById('cl-tx-lin').textContent = cfg.nonlinear ? `${txLin.toFixed(2)} mA` : `Linear`;
+            document.getElementById('cl-dac-out').textContent = `${dac.toFixed(2)}mA`;
+            document.getElementById('cl-ip-out').textContent = `${ip.toFixed(1)}psi`;
+            document.getElementById('cl-vlv-out').textContent = `${man}%`;
+
+            // Sync 3D Rig Visuals
+            threeLab.animState.valveOpen = man / 100;
+            if (domain === 'level') threeLab.animState.h1Frac = Math.max(0.1, norm * 0.9);
+            if (domain === 'flow') threeLab.animState.flowLPH = pv;
+            if (domain === 'pressure') threeLab.animState.pressurePsi = pv;
+            if (domain === 'thermal') threeLab.animState.heaterPower = norm;
+
+            const rowsA = cfg.points.map((pt, i) => {
+                const n = (pt - cfg.min) / (cfg.max - cfg.min);
+                const x = cfg.nonlinear ? (4 + 16 * n * n) : (4 + 16 * n);
+                const lin = 4 + 4 * Math.sqrt(Math.max(0, x - 4));
+                return [i + 1, pt, x.toFixed(2), lin.toFixed(2)];
+            });
+            document.getElementById('cl-table-a').innerHTML = rowsA.map(r => `<tr><td class="p-1.5 border dark:border-slate-700">${r[0]}</td><td class="p-1.5 border dark:border-slate-700">${r[1]}</td><td class="p-1.5 border dark:border-slate-700 text-sky-600">${r[2]}</td><td class="p-1.5 border dark:border-slate-700 text-emerald-600">${r[3]}</td></tr>`).join('');
+
+            const manPts = [0, 25, 50, 75, 100];
+            const rowsB = manPts.map((m, i) => [i + 1, m, (4 + 0.16 * m).toFixed(2), (3 + 0.12 * m).toFixed(2), m]);
+            document.getElementById('cl-table-b').innerHTML = rowsB.map(r => `<tr><td class="p-1.5 border dark:border-slate-700">${r[0]}</td><td class="p-1.5 border dark:border-slate-700">${r[1]}%</td><td class="p-1.5 border dark:border-slate-700">${r[2]}</td><td class="p-1.5 border dark:border-slate-700">${r[3]}</td><td class="p-1.5 border dark:border-slate-700">${r[4]}%</td></tr>`).join('');
+
+            destroyCharts();
+            const colors = getChartThemeColors();
+            activeCharts.push(
+                new Chart(document.getElementById('chart-cl-a').getContext('2d'), {
+                    type: 'line',
+                    data: { labels: cfg.points, datasets: [{ label: 'Tx Output X (mA)', data: rowsA.map(r => Number(r[2])), borderColor: '#0284c7' }, ...(cfg.nonlinear ? [{ label: 'Linearized 4+4√(X-4)', data: rowsA.map(r => Number(r[3])), borderColor: '#10b981', borderDash: [5, 4] }] : [])] },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: colors.text } } }, scales: { x: { ticks: { color: colors.text }, grid: { color: colors.grid } }, y: { ticks: { color: colors.text }, grid: { color: colors.grid } } } }
+                }),
+                new Chart(document.getElementById('chart-cl-b').getContext('2d'), {
+                    type: 'line',
+                    data: { labels: manPts, datasets: [{ label: 'DAC (mA)', data: rowsB.map(r => Number(r[2])), borderColor: '#4f46e5' }, { label: 'I/P (psi)', data: rowsB.map(r => Number(r[3])), borderColor: '#f59e0b' }, { label: 'Valve (%)', data: rowsB.map(r => Number(r[4])), borderColor: '#10b981', borderDash: [4, 4] }] },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: colors.text } } }, scales: { x: { ticks: { color: colors.text }, grid: { color: colors.grid } }, y: { ticks: { color: colors.text }, grid: { color: colors.grid } } } }
+                })
+            );
+
+            currentSimulationData = {
+                parameters: `Closed Loop Calibration (${cfg.varName}) | Supply = 20 psi`,
+                headers: ['S.No', 'Manual %', 'DAC (mA)', 'I/P (psi)', 'Valve %'],
+                rows: rowsB, calculations: [`Tx Output = ${txOut.toFixed(2)} mA`, `DAC = ${dac.toFixed(2)} mA, I/P = ${ip.toFixed(2)} psi`],
+                result: `Closed-loop linearity of ${cfg.varName} Transmitter, DAC, I/P converter, and Control Valve verified.`, chartCanvasId: 'chart-cl-b'
+            };
+        }
+
+        // =========================================================================
+        // 9. EXPERIMENTS 07, 08, 09 & 10: CONTROLLER TUNING SIMULATOR
+        // =========================================================================
+        function renderTuningExperiment(consoleEl, analyticsEl, systemType) {
+            const presets = {
+                level: { name: 'Level', unit: 'cm', sp: 15, minSp: 5, maxSp: 30, gap: 5, kp: 2.0, ki: 0.01, kd: 0.1 },
+                flow: { name: 'Flow', unit: 'LPH', sp: 250, minSp: 100, maxSp: 450, gap: 100, kp: 2.0, ki: 0.01, kd: 0.1 },
+                thermal: { name: 'Temperature', unit: '°C', sp: 50, minSp: 35, maxSp: 85, gap: 10, kp: 3.0, ki: 0.01, kd: 0.1 },
+                pressure: { name: 'Pressure', unit: 'Psi', sp: 35, minSp: 15, maxSp: 55, gap: 20, kp: 2.0, ki: 0.01, kd: 0.1 }
+            };
+            const p = presets[systemType];
+
+            consoleEl.innerHTML = `
+                <div class="space-y-3">
+                    <h3 class="text-sm font-bold flex items-center gap-2"><i class="fas fa-cogs text-sky-600"></i> 3D Controller Mode & Gains</h3>
+                    <div class="grid grid-cols-5 gap-1">
+                        ${['ONOFF', 'P', 'PI', 'PD', 'PID'].map(m => `
+                            <button onclick="setTuningMode('${systemType}', '${m}')" data-mode="${m}" class="tune-mode-btn py-1.5 text-xs font-bold rounded-lg border">${m === 'ONOFF' ? 'ON/OFF' : m}</button>
+                        `).join('')}
+                    </div>
+                    <div><div class="flex justify-between text-xs mb-0.5"><span>Set Point (SP)</span><span class="font-mono font-bold text-sky-600"><span id="tn-sp-val">${p.sp}</span> ${p.unit}</span></div><input type="range" id="tn-sp" min="${p.minSp}" max="${p.maxSp}" value="${p.sp}" class="w-full accent-sky-600" oninput="runTuningSim('${systemType}')"></div>
+                    <div id="tn-gap-box" class="hidden"><div class="flex justify-between text-xs mb-0.5"><span>Differential Gap</span><span class="font-mono font-bold text-rose-600"><span id="tn-gap-val">${p.gap}</span> ${p.unit}</span></div><input type="range" id="tn-gap" min="2" max="${p.gap * 2}" value="${p.gap}" class="w-full accent-rose-600" oninput="runTuningSim('${systemType}')"></div>
+                    <div id="tn-kp-box"><div class="flex justify-between text-xs mb-0.5"><span>Kp</span><span class="font-mono font-bold text-indigo-600"><span id="tn-kp-val">${p.kp}</span></span></div><input type="range" id="tn-kp" min="0.5" max="8" step="0.5" value="${p.kp}" class="w-full accent-indigo-600" oninput="runTuningSim('${systemType}')"></div>
+                    <div id="tn-ki-box"><div class="flex justify-between text-xs mb-0.5"><span>Ki</span><span class="font-mono font-bold text-emerald-600"><span id="tn-ki-val">${p.ki}</span></span></div><input type="range" id="tn-ki" min="0.005" max="0.25" step="0.005" value="${p.ki}" class="w-full accent-emerald-600" oninput="runTuningSim('${systemType}')"></div>
+                    <div id="tn-kd-box"><div class="flex justify-between text-xs mb-0.5"><span>Kd</span><span class="font-mono font-bold text-amber-600"><span id="tn-kd-val">${p.kd}</span></span></div><input type="range" id="tn-kd" min="0.05" max="2.0" step="0.05" value="${p.kd}" class="w-full accent-amber-600" oninput="runTuningSim('${systemType}')"></div>
+                    <div class="grid grid-cols-2 gap-2 pt-2 border-t dark:border-slate-800 font-mono text-xs">
+                        <div class="bg-slate-50 dark:bg-slate-800 p-2 rounded-lg">Offset: <b id="tn-metric-offset" class="text-rose-600">--</b></div>
+                        <div class="bg-slate-50 dark:bg-slate-800 p-2 rounded-lg">Settling: <b id="tn-metric-settle" class="text-emerald-600">--</b></div>
+                    </div>
+                </div>
+            `;
+
+            analyticsEl.innerHTML = `
+                <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
+                    <h3 class="text-sm font-bold mb-3" id="tn-chart-title">Controller Tuning Response</h3>
+                    <div class="relative h-64 sm:h-72 w-full"><canvas id="chart-tuning"></canvas></div>
+                </div>
+                <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
+                    <h3 class="text-sm font-bold mb-3">Observation Table</h3>
+                    <div class="overflow-x-auto max-h-60">
+                        <table class="w-full text-xs text-left border-collapse font-mono">
+                            <thead class="bg-slate-100 dark:bg-slate-800 sticky top-0"><tr><th class="p-2 border dark:border-slate-700">S.No</th><th class="p-2 border dark:border-slate-700">Time (s)</th><th class="p-2 border dark:border-slate-700">PV (${p.unit})</th><th class="p-2 border dark:border-slate-700">SP (${p.unit})</th><th class="p-2 border dark:border-slate-700">Valve %</th></tr></thead>
+                            <tbody id="tn-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+            setTuningMode(systemType, 'PID');
+        }
+
+        function setTuningMode(systemType, mode) {
+            window.currentTuningMode = mode;
+            document.querySelectorAll('.tune-mode-btn').forEach(btn => {
+                const isSel = btn.dataset.mode === mode;
+                btn.className = `tune-mode-btn py-1.5 text-xs font-bold rounded-lg border ${isSel ? 'bg-sky-600 text-white border-sky-600' : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700'}`;
+            });
+            document.getElementById('tn-gap-box').classList.toggle('hidden', mode !== 'ONOFF');
+            document.getElementById('tn-kp-box').classList.toggle('hidden', mode === 'ONOFF');
+            document.getElementById('tn-ki-box').classList.toggle('hidden', !(mode === 'PI' || mode === 'PID'));
+            document.getElementById('tn-kd-box').classList.toggle('hidden', !(mode === 'PD' || mode === 'PID'));
+            if (systemType === 'pressure' && mode === 'PID') document.getElementById('tn-kp').value = 3.0;
+            runTuningSim(systemType);
+        }
+
+        function runTuningSim(systemType) {
+            const presets = {
+                level: { name: 'Level', unit: 'cm', tau: 22, gain: 0.32, ambient: 0, simTime: 180 },
+                flow: { name: 'Flow', unit: 'LPH', tau: 6, gain: 5.2, ambient: 0, simTime: 80 },
+                thermal: { name: 'Temperature', unit: '°C', tau: 38, gain: 0.85, ambient: 28, simTime: 240 },
+                pressure: { name: 'Pressure', unit: 'Psi', tau: 14, gain: 0.65, ambient: 0, simTime: 120 }
+            };
+            const p = presets[systemType];
+            const mode = window.currentTuningMode || 'PID';
+            const sp = parseFloat(document.getElementById('tn-sp').value);
+            const gap = parseFloat(document.getElementById('tn-gap').value);
+            const kp = parseFloat(document.getElementById('tn-kp').value);
+            const ki = parseFloat(document.getElementById('tn-ki').value);
+            const kd = parseFloat(document.getElementById('tn-kd').value);
+
+            document.getElementById('tn-sp-val').textContent = sp;
+            document.getElementById('tn-gap-val').textContent = gap;
+            document.getElementById('tn-kp-val').textContent = kp.toFixed(1);
+            document.getElementById('tn-ki-val').textContent = ki.toFixed(3);
+            document.getElementById('tn-kd-val').textContent = kd.toFixed(2);
+            document.getElementById('tn-chart-title').textContent = `${mode} Controller Tuning Response — ${p.name} System (SP = ${sp} ${p.unit})`;
+
+            let pv = p.ambient, integral = 0, prevError = sp - pv, valve = 100;
+            const dt = 0.5, sampleEvery = Math.round(p.simTime / 24);
+            let nextSample = 0, sno = 1, settleTime = null;
+            const labels = [], dataPV = [], dataSP = [], dataValve = [], rows = [];
+            const spanScale = 100 / (sp * 1.6);
+
+            for (let t = 0; t <= p.simTime; t += dt) {
+                const error = sp - pv;
+                if (mode === 'ONOFF') {
+                    if (pv < sp - gap / 2) valve = 100;
+                    else if (pv > sp + gap / 2) valve = 0;
+                } else {
+                    const eNorm = error * spanScale;
+                    const derivNorm = ((error - prevError) / dt) * spanScale;
+                    if (mode === 'PI' || mode === 'PID') {
+                        integral = Math.max(-80, Math.min(80, integral + eNorm * dt * 12));
+                    } else integral = 0;
+                    const dTerm = (mode === 'PD' || mode === 'PID') ? (kd * 18 * derivNorm) : 0;
+                    const iTerm = (mode === 'PI' || mode === 'PID') ? (ki * 22 * integral) : 0;
+                    valve = Math.max(0, Math.min(100, 30 + kp * 1.4 * eNorm + iTerm + dTerm));
+                }
+
+                if (t >= nextSample - 0.01) {
+                    labels.push(Math.round(nextSample));
+                    dataPV.push(Number(pv.toFixed(2)));
+                    dataSP.push(sp);
+                    dataValve.push(Number(valve.toFixed(1)));
+                    rows.push([sno++, Math.round(nextSample), pv.toFixed(2), sp, valve.toFixed(1)]);
+                    nextSample += sampleEvery;
+                }
+                if (Math.abs(error) <= 0.03 * sp && settleTime === null && t > 5) settleTime = Math.round(t);
+                else if (Math.abs(error) > 0.03 * sp) settleTime = null;
+
+                pv += (((p.ambient + p.gain * valve) - pv) / p.tau) * dt;
+                prevError = error;
+            }
+
+            const finalPV = dataPV[dataPV.length - 1];
+            const finalValve = dataValve[dataValve.length - 1];
+            const offset = Math.abs(sp - finalPV);
+
+            // Sync 3D Equipment Visuals to Steady-State Output
+            threeLab.animState.valveOpen = finalValve / 100;
+            if (systemType === 'level') threeLab.animState.h1Frac = Math.min(0.92, finalPV / 30);
+            if (systemType === 'flow') threeLab.animState.flowLPH = finalPV;
+            if (systemType === 'thermal') { threeLab.animState.heaterPower = finalValve / 100; threeLab.animState.h1Frac = 0.65; }
+            if (systemType === 'pressure') threeLab.animState.pressurePsi = finalPV;
+
+            document.getElementById('tn-metric-offset').textContent = mode === 'ONOFF' ? `±${(gap / 2).toFixed(1)} ${p.unit}` : `${offset.toFixed(2)} ${p.unit}`;
+            document.getElementById('tn-metric-settle').textContent = mode === 'ONOFF' ? 'Oscillating' : (settleTime ? `${settleTime} s` : `>${p.simTime} s`);
+            document.getElementById('tn-table-body').innerHTML = rows.map(r => `<tr><td class="p-1.5 border dark:border-slate-700">${r[0]}</td><td class="p-1.5 border dark:border-slate-700">${r[1]}</td><td class="p-1.5 border dark:border-slate-700 text-sky-600 font-semibold">${r[2]}</td><td class="p-1.5 border dark:border-slate-700">${r[3]}</td><td class="p-1.5 border dark:border-slate-700 text-amber-600">${r[4]}%</td></tr>`).join('');
+
+            destroyCharts();
+            const colors = getChartThemeColors();
+            activeCharts.push(new Chart(document.getElementById('chart-tuning').getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        { label: `PV (${p.unit})`, data: dataPV, borderColor: '#0284c7', borderWidth: 2.5, tension: 0.25, yAxisID: 'y' },
+                        { label: `SP (${p.unit})`, data: dataSP, borderColor: '#10b981', borderDash: [6, 4], pointRadius: 0, yAxisID: 'y' },
+                        { label: 'Valve (%)', data: dataValve, borderColor: '#f59e0b', borderWidth: 1.5, yAxisID: 'y1' }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: colors.text } } },
+                    scales: {
+                        x: { ticks: { color: colors.text }, grid: { color: colors.grid } },
+                        y: { position: 'left', ticks: { color: colors.text }, grid: { color: colors.grid } },
+                        y1: { position: 'right', min: 0, max: 105, ticks: { color: '#f59e0b' }, grid: { drawOnChartArea: false } }
+                    }
+                }
+            }));
+
+            currentSimulationData = {
+                parameters: `Mode: ${mode} | SP = ${sp} ${p.unit} | Kp=${kp}, Ki=${ki}, Kd=${kd}`,
+                headers: ['S.No', 'Time(s)', `PV (${p.unit})`, `SP (${p.unit})`, 'Valve %'],
+                rows, calculations: [`Mode: ${mode}, Steady PV = ${finalPV.toFixed(2)} ${p.unit}, Offset = ${offset.toFixed(2)} ${p.unit}`],
+                result: `Controller tuning (${mode}) on ${p.name} system verified. Offset = ${offset.toFixed(2)} ${p.unit}.`, chartCanvasId: 'chart-tuning'
+            };
+        }
+
+        // =========================================================================
+        // 10. EXPERIMENT 11: FLOW CO-EFFICIENT OF CONTROL VALVES
+        // =========================================================================
+        function renderExp11(consoleEl, analyticsEl) {
+            consoleEl.innerHTML = `
+                <div class="space-y-4">
+                    <h3 class="text-sm font-bold flex items-center gap-2"><i class="fas fa-sliders-h text-sky-600"></i> 3D Equal % Valve Controls</h3>
+                    <div><div class="flex justify-between text-xs mb-1"><span>Air Regulator Pressure</span><span class="font-mono font-bold text-sky-600"><span id="e11-p-val">15</span> psi</span></div><input type="range" id="e11-p" min="3" max="15" step="3" value="15" class="w-full accent-sky-600" oninput="updateExp11()"></div>
+                    <div><div class="flex justify-between text-xs mb-1"><span>Max Flow (m_max)</span><span class="font-mono font-bold text-emerald-600"><span id="e11-mmax-val">500</span> LPH</span></div><input type="range" id="e11-mmax" min="300" max="800" step="50" value="500" class="w-full accent-emerald-600" oninput="updateExp11()"></div>
+                    <div><div class="flex justify-between text-xs mb-1"><span>Rangeability (R)</span><span class="font-mono font-bold text-indigo-600"><span id="e11-r-val">25</span></span></div><input type="range" id="e11-r" min="10" max="50" step="5" value="25" class="w-full accent-indigo-600" oninput="updateExp11()"></div>
+                    <div id="e11-calc-box" class="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl font-mono text-xs space-y-1"></div>
+                </div>
+            `;
+            analyticsEl.innerHTML = `
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
+                        <h3 class="text-sm font-bold mb-3">% Stem Opening vs % Flow Rate</h3>
+                        <div class="relative h-60 w-full"><canvas id="chart-exp11"></canvas></div>
+                    </div>
+                    <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
+                        <h3 class="text-sm font-bold mb-3">Observation Table</h3>
+                        <table class="w-full text-xs border-collapse font-mono"><thead class="bg-slate-100 dark:bg-slate-800"><tr><th class="p-2 border dark:border-slate-700">Pressure</th><th class="p-2 border dark:border-slate-700">% Stem</th><th class="p-2 border dark:border-slate-700">Flow (LPH)</th><th class="p-2 border dark:border-slate-700">% Flow</th></tr></thead><tbody id="e11-table-body"></tbody></table>
+                    </div>
+                </div>
+            `;
+            updateExp11();
+        }
+
+        function updateExp11() {
+            const pSel = parseFloat(document.getElementById('e11-p').value);
+            const mMax = parseFloat(document.getElementById('e11-mmax').value);
+            const R = parseFloat(document.getElementById('e11-r').value);
+            document.getElementById('e11-p-val').textContent = pSel;
+            document.getElementById('e11-mmax-val').textContent = mMax;
+            document.getElementById('e11-r-val').textContent = R;
+
+            const pressures = [3, 6, 9, 12, 15];
+            const rows = pressures.map(p => {
+                const x = (p - 3) / 12;
+                const flow = (mMax / R) * Math.pow(R, x);
+                return [p, (x * 100).toFixed(0) + '%', flow.toFixed(2), ((flow / mMax) * 100).toFixed(2) + '%', x * 100, (flow / mMax) * 100, flow];
+            });
+
+            const cur = rows.find(r => r[0] === pSel);
+            threeLab.animState.valveOpen = (pSel - 3) / 12;
+            threeLab.animState.flowLPH = cur[6];
+            threeLab.animState.maxFlowLPH = mMax;
+
+            document.getElementById('e11-table-body').innerHTML = rows.map(r => `<tr class="${r[0] === pSel ? 'bg-sky-50 dark:bg-sky-950/40 font-bold' : ''}"><td class="p-2 border dark:border-slate-700">${r[0]} psi</td><td class="p-2 border dark:border-slate-700">${r[1]}</td><td class="p-2 border dark:border-slate-700">${r[2]}</td><td class="p-2 border dark:border-slate-700">${r[3]}</td></tr>`).join('');
+            const calcLines = [`m_max (15 psi) = ${mMax} LPH`, `m_min (3 psi) = ${(mMax / R).toFixed(2)} LPH`, `Rangeability = m_max / m_min = ${R.toFixed(2)}`];
+            document.getElementById('e11-calc-box').innerHTML = calcLines.map(l => `<div>${l}</div>`).join('');
+
+            destroyCharts();
+            const colors = getChartThemeColors();
+            activeCharts.push(new Chart(document.getElementById('chart-exp11').getContext('2d'), {
+                type: 'line',
+                data: { labels: rows.map(r => r[4]), datasets: [{ label: 'Equal % Characteristic', data: rows.map(r => Number(r[5].toFixed(2))), borderColor: '#0284c7', fill: true, backgroundColor: 'rgba(2,132,199,0.15)', tension: 0.35 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: colors.text } } }, scales: { x: { ticks: { color: colors.text }, grid: { color: colors.grid } }, y: { ticks: { color: colors.text }, grid: { color: colors.grid } } } }
+            }));
+
+            currentSimulationData = { parameters: `m_max=${mMax} LPH`, headers: ['Pressure', '% Stem', 'Flow (LPH)', '% Flow'], rows: rows.map(r => [r[0], r[1], r[2], r[3]]), calculations: calcLines, result: `Flow coefficient (Rangeability) = ${R.toFixed(2)}`, chartCanvasId: 'chart-exp11' };
+        }
+
+        // =========================================================================
+        // 11. EXPERIMENT 12: CHARACTERISTICS OF DIFFERENT CONTROL VALVES
+        // =========================================================================
+        function renderExp12(consoleEl, analyticsEl) {
+            consoleEl.innerHTML = `
+                <div class="space-y-4">
+                    <h3 class="text-sm font-bold flex items-center gap-2"><i class="fas fa-sliders-h text-sky-600"></i> 3D Multi-Valve Manifold Controls</h3>
+                    <div class="grid grid-cols-3 gap-1.5">
+                        <button onclick="threeLab.animState.branchIndex=0" class="py-1.5 text-xs font-bold rounded-lg bg-rose-600 text-white">Quick Open</button>
+                        <button onclick="threeLab.animState.branchIndex=1" class="py-1.5 text-xs font-bold rounded-lg bg-indigo-600 text-white">Linear</button>
+                        <button onclick="threeLab.animState.branchIndex=2" class="py-1.5 text-xs font-bold rounded-lg bg-sky-600 text-white">Equal %</button>
+                    </div>
+                    <div><div class="flex justify-between text-xs mb-1"><span>Max Flow (Q_max)</span><span class="font-mono font-bold text-sky-600"><span id="e12-qmax-val">500</span> LPH</span></div><input type="range" id="e12-qmax" min="300" max="800" step="50" value="500" class="w-full accent-sky-600" oninput="updateExp12()"></div>
+                    <div><div class="flex justify-between text-xs mb-1"><span>Inspect Stem Opening</span><span class="font-mono font-bold text-indigo-600"><span id="e12-stem-val">50</span>%</span></div><input type="range" id="e12-stem" min="0" max="100" step="25" value="50" class="w-full accent-indigo-600" oninput="updateExp12()"></div>
+                    <div id="e12-gain-box" class="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl font-mono text-xs space-y-1"></div>
+                </div>
+            `;
+            analyticsEl.innerHTML = `
+                <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
+                    <h3 class="text-sm font-bold mb-3">Inherent Valve Characteristics: % Full Cv vs % Stem Position</h3>
+                    <div class="relative h-64 w-full"><canvas id="chart-exp12"></canvas></div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-white dark:bg-slate-900 rounded-2xl border p-4"><h4 class="text-xs font-bold text-rose-600 mb-2">ON-OFF (Quick Opening)</h4><table class="w-full text-xs border-collapse font-mono"><thead class="bg-slate-100 dark:bg-slate-800"><tr><th class="p-1.5 border">S.No</th><th class="p-1.5 border">psi</th><th class="p-1.5 border">LPH</th></tr></thead><tbody id="e12-tbl-qo"></tbody></table></div>
+                    <div class="bg-white dark:bg-slate-900 rounded-2xl border p-4"><h4 class="text-xs font-bold text-purple-600 mb-2">Linear Control Valve</h4><table class="w-full text-xs border-collapse font-mono"><thead class="bg-slate-100 dark:bg-slate-800"><tr><th class="p-1.5 border">S.No</th><th class="p-1.5 border">psi</th><th class="p-1.5 border">LPH</th></tr></thead><tbody id="e12-tbl-lin"></tbody></table></div>
+                    <div class="bg-white dark:bg-slate-900 rounded-2xl border p-4"><h4 class="text-xs font-bold text-sky-600 mb-2">Equal % Control Valve</h4><table class="w-full text-xs border-collapse font-mono"><thead class="bg-slate-100 dark:bg-slate-800"><tr><th class="p-1.5 border">S.No</th><th class="p-1.5 border">psi</th><th class="p-1.5 border">LPH</th></tr></thead><tbody id="e12-tbl-eq"></tbody></table></div>
+                </div>
+            `;
+            updateExp12();
+        }
+
+        function updateExp12() {
+            const qMax = parseFloat(document.getElementById('e12-qmax').value);
+            const stemPct = parseFloat(document.getElementById('e12-stem').value);
+            document.getElementById('e12-qmax-val').textContent = qMax;
+            document.getElementById('e12-stem-val').textContent = stemPct;
+            threeLab.animState.valveOpen = stemPct / 100;
+
+            const pressures = [3, 6, 9, 12, 15], R = 25;
+            const qoData = [], linData = [], eqData = [], merged = [];
+            pressures.forEach((p, i) => {
+                const s = (p - 3) / 12;
+                const qQO = qMax * Math.sqrt(s), qLin = qMax * s, qEq = (qMax / R) * Math.pow(R, s);
+                qoData.push(Number(qQO.toFixed(1))); linData.push(Number(qLin.toFixed(1))); eqData.push(Number(qEq.toFixed(1)));
+                merged.push([i + 1, `${p} psi`, qQO.toFixed(1), qLin.toFixed(1), qEq.toFixed(1)]);
+            });
+
+            const mini = (arr) => pressures.map((p, i) => `<tr><td class="p-1.5 border">${i + 1}</td><td class="p-1.5 border">${p}</td><td class="p-1.5 border font-semibold">${arr[i]}</td></tr>`).join('');
+            document.getElementById('e12-tbl-qo').innerHTML = mini(qoData);
+            document.getElementById('e12-tbl-lin').innerHTML = mini(linData);
+            document.getElementById('e12-tbl-eq').innerHTML = mini(eqData);
+
+            const sNorm = stemPct / 100;
+            const gQO = sNorm > 0 ? (Math.sqrt(sNorm) / sNorm).toFixed(2) : '∞';
+            const gEq = sNorm > 0 ? (((1 / R) * Math.pow(R, sNorm)) / sNorm).toFixed(2) : '0.04';
+            document.getElementById('e12-gain-box').innerHTML = `<div>Gain @ ${stemPct}%: QO=<b>${gQO}</b> | Lin=<b>1.00</b> | Eq%=<b>${gEq}</b></div>`;
+
+            destroyCharts();
+            const colors = getChartThemeColors();
+            activeCharts.push(new Chart(document.getElementById('chart-exp12').getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: ['0%', '25%', '50%', '75%', '100%'],
+                    datasets: [
+                        { label: 'Quick Opening', data: qoData.map(q => (q / qMax) * 100), borderColor: '#e11d48', tension: 0.35 },
+                        { label: 'Linear', data: linData.map(q => (q / qMax) * 100), borderColor: '#9333ea' },
+                        { label: 'Equal Percentage', data: eqData.map(q => (q / qMax) * 100), borderColor: '#0284c7', tension: 0.35 }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: colors.text } } }, scales: { x: { ticks: { color: colors.text }, grid: { color: colors.grid } }, y: { ticks: { color: colors.text }, grid: { color: colors.grid } } } }
+            }));
+
+            currentSimulationData = { parameters: `Q_max=${qMax} LPH`, headers: ['S.No', 'Pressure', 'Quick Open', 'Linear', 'Equal %'], rows: merged, calculations: [`Gain @ ${stemPct}%: QO=${gQO}, Linear=1.00, Equal%=${gEq}`], result: `Control valve characteristics studied and plotted.`, chartCanvasId: 'chart-exp12' };
+        }
+
+        // =========================================================================
+        // 12. EXPERIMENT 13: SECOND ORDER U-TUBE MANOMETER
+        // =========================================================================
+        function renderExp13(consoleEl, analyticsEl) {
+            consoleEl.innerHTML = `
+                <div class="space-y-3.5">
+                    <h3 class="text-sm font-bold flex items-center gap-2"><i class="fas fa-sliders-h text-rose-600"></i> 3D U-Tube Manometer Controls</h3>
+                    <div><div class="flex justify-between text-xs mb-1"><span>Manometer Tube Length (L)</span><span class="font-mono font-bold text-sky-600"><span id="e13-l-val">1.2</span> m</span></div><input type="range" id="e13-l" min="0.5" max="2.5" step="0.1" value="1.2" class="w-full accent-sky-600" oninput="updateExp13()"></div>
+                    <div><div class="flex justify-between text-xs mb-1"><span>Damping Coefficient (ζ)</span><span class="font-mono font-bold text-rose-600"><span id="e13-z-val">0.25</span></span></div><input type="range" id="e13-z" min="0.10" max="0.85" step="0.05" value="0.25" class="w-full accent-rose-600" oninput="updateExp13()"></div>
+                    <div><div class="flex justify-between text-xs mb-1"><span>Steady-State Height H(s)</span><span class="font-mono font-bold text-emerald-600"><span id="e13-hs-val">20</span> cm</span></div><input type="range" id="e13-hs" min="12" max="30" step="2" value="20" class="w-full accent-emerald-600" oninput="updateExp13()"></div>
+                    <button onclick="threeLab.animState.manometerPulseTime = performance.now()" class="w-full py-2 text-xs font-bold rounded-xl bg-rose-600 hover:bg-rose-500 text-white shadow"><i class="fas fa-hand-pointer mr-1"></i> Trigger Step Pressure Pulse in 3D</button>
+                    <div id="e13-tf-box" class="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl font-mono text-xs font-bold text-indigo-600"></div>
+                </div>
+            `;
+            analyticsEl.innerHTML = `
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    <div class="lg:col-span-7 bg-white dark:bg-slate-900 rounded-2xl border p-5 shadow-sm">
+                        <h3 class="text-sm font-bold mb-3">Under-Damped Second Order Response Y(t)</h3>
+                        <div class="relative h-64 w-full"><canvas id="chart-exp13"></canvas></div>
+                    </div>
+                    <div class="lg:col-span-5 bg-white dark:bg-slate-900 rounded-2xl border p-5 shadow-sm">
+                        <h4 class="text-xs font-bold uppercase text-indigo-600 mb-3">Dynamic Parameters</h4>
+                        <div id="e13-calc-box" class="space-y-1.5 text-xs font-mono bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-xl"></div>
+                    </div>
+                </div>
+                <div class="bg-white dark:bg-slate-900 rounded-2xl border p-5 shadow-sm">
+                    <h3 class="text-sm font-bold mb-3">Observation Table</h3>
+                    <div class="overflow-x-auto max-h-60">
+                        <table class="w-full text-xs text-left border-collapse font-mono"><thead class="bg-slate-100 dark:bg-slate-800 sticky top-0"><tr><th class="p-2 border">Sr.No</th><th class="p-2 border">Time t (s)</th><th class="p-2 border">Height H(t) cm</th><th class="p-2 border">Y(t)</th></tr></thead><tbody id="e13-table-body"></tbody></table>
+                    </div>
+                </div>
+            `;
+            updateExp13();
+        }
+
+        function updateExp13() {
+            const L = parseFloat(document.getElementById('e13-l').value);
+            const zeta = parseFloat(document.getElementById('e13-z').value);
+            const Hs = parseFloat(document.getElementById('e13-hs').value);
+            const Hi = 10.0;
+            document.getElementById('e13-l-val').textContent = L.toFixed(1);
+            document.getElementById('e13-z-val').textContent = zeta.toFixed(2);
+            document.getElementById('e13-hs-val').textContent = Hs.toFixed(1);
+
+            threeLab.animState.manometerPulseTime = performance.now();
+
+            const tau = Math.sqrt((2 * L) / (3 * 9.81));
+            const sq = Math.sqrt(1 - zeta * zeta);
+            const overshoot = Math.exp((-Math.PI * zeta) / sq);
+            const decayRatio = overshoot * overshoot;
+            const tr = (tau / sq) * (Math.PI - Math.acos(zeta));
+            const ts = (Math.log(20) * tau) / zeta;
+            const omega = sq / tau;
+
+            const simDuration = Math.min(12, Math.max(3, Math.ceil(ts * 1.25)));
+            const dt = Number((simDuration / 30).toFixed(2));
+            const labels = [], dataY = [], rows = [];
+            let sno = 1;
+            for (let t = 0; t <= simDuration + 0.001; t += dt) {
+                const phi = Math.atan(sq / zeta);
+                const yt = 1 - (1 / sq) * Math.exp((-zeta * t) / tau) * Math.sin(omega * t + phi);
+                const ht = Hi + yt * (Hs - Hi);
+                labels.push(t.toFixed(2)); dataY.push(Number(yt.toFixed(3)));
+                rows.push([sno++, t.toFixed(2), ht.toFixed(2), yt.toFixed(3)]);
+            }
+
+            document.getElementById('e13-table-body').innerHTML = rows.map(r => `<tr><td class="p-1.5 border">${r[0]}</td><td class="p-1.5 border">${r[1]}</td><td class="p-1.5 border text-sky-600">${r[2]}</td><td class="p-1.5 border text-emerald-600">${r[3]}</td></tr>`).join('');
+            const calcLines = [`• τ = √(2L/3g) = ${tau.toFixed(3)} sec`, `• Damping Factor ζ = ${zeta.toFixed(2)}`, `• Overshoot = ${(overshoot * 100).toFixed(1)}% | Decay Ratio = ${decayRatio.toFixed(3)}`, `• Rise Time t_r = ${tr.toFixed(2)} s | Response Time t_s = ${ts.toFixed(2)} s`];
+            document.getElementById('e13-calc-box').innerHTML = calcLines.map(l => `<div>${l}</div>`).join('');
+            document.getElementById('e13-tf-box').textContent = `G(s) = 1 / (${(tau * tau).toFixed(3)}s² + ${(2 * tau * zeta).toFixed(3)}s + 1)`;
+
+            destroyCharts();
+            const colors = getChartThemeColors();
+            activeCharts.push(new Chart(document.getElementById('chart-exp13').getContext('2d'), {
+                type: 'line',
+                data: { labels, datasets: [{ label: 'Normalized Response Y(t)', data: dataY, borderColor: '#0284c7', fill: true, backgroundColor: 'rgba(2,132,199,0.12)', tension: 0.35 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: colors.text } } }, scales: { x: { ticks: { color: colors.text }, grid: { color: colors.grid } }, y: { ticks: { color: colors.text }, grid: { color: colors.grid } } } }
+            }));
+
+            currentSimulationData = { parameters: `L=${L}m, ζ=${zeta}, H(i)=10cm, H(s)=${Hs}cm`, headers: ['Sr.No', 'Time(s)', 'H(t) cm', 'Y(t)'], rows, calculations: calcLines, result: `G(s) = 1 / (${(tau * tau).toFixed(3)}s² + ${(2 * tau * zeta).toFixed(3)}s + 1)`, chartCanvasId: 'chart-exp13' };
+        }
+
+        // =========================================================================
+        // 13. EXPERIMENT 14: CASCADE CONTROL SYSTEM
+        // =========================================================================
+        function renderExp14(consoleEl, analyticsEl) {
+            consoleEl.innerHTML = `
+                <div class="space-y-4">
+                    <h3 class="text-sm font-bold flex items-center gap-2"><i class="fas fa-project-diagram text-sky-600"></i> 3D Cascade Loop Controls</h3>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="setCascadeMode('PID')" id="casc-btn-pid" class="py-2 text-xs font-bold rounded-xl bg-sky-600 text-white">PID Cascade</button>
+                        <button onclick="setCascadeMode('ONOFF')" id="casc-btn-onoff" class="py-2 text-xs font-bold rounded-xl bg-slate-100 dark:bg-slate-800">ON-OFF Cascade</button>
+                    </div>
+                    <div><div class="flex justify-between text-xs mb-1"><span>Primary Level Set Point (Sv)</span><span class="font-mono font-bold text-sky-600"><span id="e14-lsp-val">500</span> mm</span></div><input type="range" id="e14-lsp" min="200" max="800" step="50" value="500" class="w-full accent-sky-600" oninput="updateExp14()"></div>
+                    <div><div class="flex justify-between text-xs mb-1"><span>Supply Pressure Surge @ t=60s</span><span class="font-mono font-bold text-rose-600">+<span id="e14-dist-val">25</span>%</span></div><input type="range" id="e14-dist" min="0" max="50" step="5" value="25" class="w-full accent-rose-600" oninput="updateExp14()"></div>
+                </div>
+            `;
+            analyticsEl.innerHTML = `
+                <div class="bg-white dark:bg-slate-900 rounded-2xl border p-5 shadow-sm">
+                    <h3 class="text-sm font-bold mb-3">Cascade Loop Response: Primary Level (mm) & Secondary Flow (LPH)</h3>
+                    <div class="relative h-64 w-full"><canvas id="chart-exp14"></canvas></div>
+                </div>
+                <div class="bg-white dark:bg-slate-900 rounded-2xl border p-5 shadow-sm">
+                    <h3 class="text-sm font-bold mb-3">Tabulation (<span id="e14-tbl-mode">PID</span> Cascade)</h3>
+                    <div class="overflow-x-auto max-h-60">
+                        <table class="w-full text-xs text-left border-collapse font-mono"><thead class="bg-slate-100 dark:bg-slate-800 sticky top-0"><tr><th class="p-2 border">Sl.No</th><th class="p-2 border">Time(s)</th><th class="p-2 border">Flow Sv</th><th class="p-2 border">Flow Pv</th><th class="p-2 border">Flow Cv%</th><th class="p-2 border">Level Sv</th><th class="p-2 border">Level Pv</th><th class="p-2 border">Level Cv%</th></tr></thead><tbody id="e14-table-body"></tbody></table>
+                    </div>
+                </div>
+            `;
+            window.cascadeMode = 'PID';
+            updateExp14();
+        }
+
+        function setCascadeMode(m) {
+            window.cascadeMode = m;
+            document.getElementById('casc-btn-pid').className = `py-2 text-xs font-bold rounded-xl ${m === 'PID' ? 'bg-sky-600 text-white' : 'bg-slate-100 dark:bg-slate-800'}`;
+            document.getElementById('casc-btn-onoff').className = `py-2 text-xs font-bold rounded-xl ${m === 'ONOFF' ? 'bg-sky-600 text-white' : 'bg-slate-100 dark:bg-slate-800'}`;
+            updateExp14();
+        }
+
+        function updateExp14() {
+            const levelSP = parseFloat(document.getElementById('e14-lsp').value);
+            const dist = parseFloat(document.getElementById('e14-dist').value);
+            const mode = window.cascadeMode || 'PID';
+            document.getElementById('e14-lsp-val').textContent = levelSP;
+            document.getElementById('e14-dist-val').textContent = dist;
+            document.getElementById('e14-tbl-mode').textContent = mode;
+
+            threeLab.animState.h1Frac = Math.min(0.92, levelSP / 850);
+            threeLab.animState.flowLPH = 120 + (levelSP / 800) * 200;
+
+            let levelPV = 100, flowPV = 60, intL = 0, intF = 0, sno = 1;
+            const labels = [], dataL = [], dataLSP = [], dataF = [], rows = [];
+            for (let t = 0; t <= 120; t += 5) {
+                const errL = levelSP - levelPV;
+                let levelCV, flowSP, flowCV;
+                if (mode === 'ONOFF') {
+                    levelCV = errL > 20 ? 90 : (errL < -20 ? 10 : 50);
+                    flowSP = 30 + (levelCV / 100) * 220;
+                    flowCV = flowSP > flowPV ? 95 : 15;
+                } else {
+                    intL = Math.max(-200, Math.min(200, intL + errL * 0.2));
+                    levelCV = Math.max(10, Math.min(100, 0.18 * errL + 0.04 * intL));
+                    flowSP = 30 + (levelCV / 100) * 220;
+                    const errF = flowSP - flowPV;
+                    intF = Math.max(-100, Math.min(100, intF + errF * 0.4));
+                    flowCV = Math.max(5, Math.min(100, 0.45 * errF + 0.25 * intF));
+                }
+                const surge = (t >= 60 && t <= 75) ? (dist * 1.4) : 0;
+                flowPV += ((flowCV * 2.5 + surge - flowPV) * 0.55);
+                levelPV += ((flowPV * 3.2 - levelPV) * 0.22);
+
+                labels.push(t); dataL.push(Number(levelPV.toFixed(1))); dataLSP.push(levelSP); dataF.push(Number(flowPV.toFixed(1)));
+                rows.push([sno++, t, flowSP.toFixed(1), flowPV.toFixed(1), flowCV.toFixed(1), levelSP, levelPV.toFixed(1), levelCV.toFixed(1)]);
+            }
+
+            document.getElementById('e14-table-body').innerHTML = rows.map(r => `<tr>${r.map(c => `<td class="p-1.5 border">${c}</td>`).join('')}</tr>`).join('');
+            destroyCharts();
+            const colors = getChartThemeColors();
+            activeCharts.push(new Chart(document.getElementById('chart-exp14').getContext('2d'), {
+                type: 'line',
+                data: { labels, datasets: [{ label: 'Level Pv (mm)', data: dataL, borderColor: '#0284c7', yAxisID: 'y' }, { label: 'Level Sv (mm)', data: dataLSP, borderColor: '#6366f1', borderDash: [5, 4], pointRadius: 0, yAxisID: 'y' }, { label: 'Flow Pv (LPH)', data: dataF, borderColor: '#10b981', yAxisID: 'y1' }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: colors.text } } }, scales: { x: { ticks: { color: colors.text }, grid: { color: colors.grid } }, y: { position: 'left', ticks: { color: '#0284c7' } }, y1: { position: 'right', ticks: { color: '#10b981' }, grid: { drawOnChartArea: false } } } }
+            }));
+
+            currentSimulationData = { parameters: `Cascade ${mode} | Level SP=${levelSP}mm`, headers: ['Sl.No', 'Time', 'Flow Sv', 'Flow Pv', 'Flow Cv%', 'Level Sv', 'Level Pv', 'Level Cv%'], rows, calculations: [`Primary Level SP = ${levelSP} mm, Disturbance = +${dist}%`], result: `Cascade controller (${mode}) performance studied.`, chartCanvasId: 'chart-exp14' };
+        }
+
+        // =========================================================================
+        // 14. VIVA QUESTIONS & ANSWERS VIEW
+        // =========================================================================
+        function renderVivaView(exp, workspace) {
+            workspace.innerHTML = `
+                <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
+                    <div class="flex flex-wrap items-center justify-between gap-4 mb-5">
+                        <div>
+                            <span class="px-2.5 py-0.5 text-xs font-bold rounded-full bg-indigo-100 text-indigo-800">CH3711 Oral Examination Bank</span>
+                            <h2 class="text-xl sm:text-2xl font-extrabold mt-1">Viva Questions & Answers (40 Official Questions)</h2>
+                        </div>
+                        <input type="text" placeholder="Filter questions..." class="w-full sm:w-72 px-3.5 py-2 text-xs rounded-xl bg-slate-100 dark:bg-slate-800 border outline-none" oninput="filterViva(this.value)">
+                    </div>
+                    <div id="viva-list" class="space-y-3"></div>
+                </div>
+            `;
+            filterViva('');
+            currentSimulationData = { parameters: '40 Viva Questions', headers: ['Q.No', 'Question & Answer'], rows: VIVA_QUESTIONS.slice(0, 15).map((v, i) => [i + 1, `${v.q} -> ${v.a}`]), calculations: [], result: 'CH3711 Viva Bank', chartCanvasId: null };
+        }
+
+        function filterViva(query) {
+            const q = query.toLowerCase();
+            document.getElementById('viva-list').innerHTML = VIVA_QUESTIONS.filter(i => i.q.toLowerCase().includes(q) || i.a.toLowerCase().includes(q)).map(item => `
+                <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700/70">
+                    <h4 class="text-xs sm:text-sm font-bold text-sky-700 dark:text-sky-400 mb-1">${item.q}</h4>
+                    <p class="text-xs sm:text-sm text-slate-700 dark:text-slate-300 leading-relaxed">${item.a}</p>
+                </div>
+            `).join('');
+        }
+
+        // =========================================================================
+        // 15. PDF GENERATOR (CAPTURES 3D EQUIPMENT + CHART + OBSERVATIONS)
+        // =========================================================================
+        async function generateLabPDF() {
+            const btn = document.getElementById('download-pdf-btn');
+            const origHtml = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i><span>Generating PDF...</span>`;
+
+            try {
+                const exp = EXPERIMENTS.find(e => e.id === activeExpId);
+                const sim = currentSimulationData || { parameters: '', headers: [], rows: [], calculations: [], result: '', chartCanvasId: null };
+
+                // Capture live 3D WebGL Viewport snapshot
+                let threeImgTag = '';
+                if (threeLab.renderer && threeLab.renderer.domElement && activeExpId !== 'viva') {
+                    threeLab.renderer.render(threeLab.scene, threeLab.camera);
+                    const threeDataUrl = threeLab.renderer.domElement.toDataURL('image/png');
+                    threeImgTag = `
+                        <div style="flex:1; border:1px solid #cbd5e1; padding:6px; border-radius:6px; text-align:center;">
+                            <div style="font-size:10px; font-weight:700; color:#0369a1; margin-bottom:4px;">3D EXPERIMENTAL APPARATUS</div>
+                            <img src="${threeDataUrl}" style="width:100%; height:175px; object-fit:cover; border-radius:4px;" />
+                        </div>
+                    `;
+                }
+
+                // Capture Chart.js Graph snapshot
+                let chartImgTag = '';
+                if (sim.chartCanvasId) {
+                    const canvas = document.getElementById(sim.chartCanvasId);
+                    if (canvas) {
+                        const imgData = canvas.toDataURL('image/png', 1.0);
+                        chartImgTag = `
+                            <div style="flex:1; border:1px solid #cbd5e1; padding:6px; border-radius:6px; text-align:center;">
+                                <div style="font-size:10px; font-weight:700; color:#0369a1; margin-bottom:4px;">RESPONSE GRAPH</div>
+                                <img src="${imgData}" style="width:100%; height:175px; object-fit:contain;" />
+                            </div>
+                        `;
+                    }
+                }
+
+                const displayRows = sim.rows.slice(0, 16);
+                const renderBox = document.getElementById('pdf-render-container');
+                renderBox.innerHTML = `
+                    <div style="border: 2px solid #0f172a; padding: 22px; background: #ffffff; color: #0f172a;">
+                        <div style="text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 8px; margin-bottom: 12px;">
+                            <div style="font-size: 10px; font-weight: 700;">OM SAKTHI</div>
+                            <div style="font-size: 16px; font-weight: 800; color: #0c4a6e;">ADHIPARASAKTHI ENGINEERING COLLEGE</div>
+                            <div style="font-size: 10.5px; font-weight: 600;">MELMARUVATHUR – 603 319 • DEPARTMENT OF CHEMICAL ENGINEERING</div>
+                            <div style="font-size: 11.5px; font-weight: 700; margin-top: 3px; color: #0369a1;">CH3711 – PROCESS CONTROL LABORATORY (REGULATION 2021)</div>
+                        </div>
+
+                        <table style="width: 100%; border-collapse: collapse; font-size: 10.5px; margin-bottom: 12px;">
+                            <tr>
+                                <td style="border: 1px solid #94a3b8; padding: 5px;"><b>Student Name:</b> ${studentInfo.name}</td>
+                                <td style="border: 1px solid #94a3b8; padding: 5px;"><b>Reg. No.:</b> ${studentInfo.regNo}</td>
+                                <td style="border: 1px solid #94a3b8; padding: 5px;"><b>Date:</b> ${studentInfo.date}</td>
+                            </tr>
+                            <tr>
+                                <td style="border: 1px solid #94a3b8; padding: 5px;"><b>${exp.no}</b></td>
+                                <td colspan="2" style="border: 1px solid #94a3b8; padding: 5px;"><b>EXPERIMENT:</b> ${exp.title.toUpperCase()}</td>
+                            </tr>
+                        </table>
+
+                        <div style="margin-bottom: 8px; font-size: 10.5px;"><b><u>AIM:</u></b> ${exp.aim}</div>
+                        <div style="margin-bottom: 10px; font-size: 10.5px;"><b><u>APPARATUS REQUIRED:</u></b> ${exp.apparatus.join(', ')}.</div>
+
+                        <!-- Side-by-side 3D Rig & Response Graph -->
+                        ${(threeImgTag || chartImgTag) ? `<div style="display:flex; gap:10px; margin-bottom:12px;">${threeImgTag}${chartImgTag}</div>` : ''}
+
+                        ${sim.headers.length ? `
+                        <div style="margin-bottom: 10px;">
+                            <div style="font-size: 11px; font-weight: 800; margin-bottom: 3px;"><u>OBSERVATION TABLE</u> (${sim.parameters}):</div>
+                            <table style="width: 100%; border-collapse: collapse; font-size: 9.5px; text-align: center;">
+                                <thead><tr style="background: #e2e8f0;">${sim.headers.map(h => `<th style="border: 1px solid #64748b; padding: 3.5px;">${h}</th>`).join('')}</tr></thead>
+                                <tbody>${displayRows.map(r => `<tr>${r.map(c => `<td style="border: 1px solid #94a3b8; padding: 3px;">${c}</td>`).join('')}</tr>`).join('')}</tbody>
+                            </table>
+                        </div>` : ''}
+
+                        ${sim.calculations.length ? `
+                        <div style="margin-bottom: 10px; background: #f8fafc; border: 1px solid #cbd5e1; padding: 7px; border-radius: 4px; font-size: 10px; font-family: monospace;">
+                            <b><u>CALCULATIONS:</u></b><br/>${sim.calculations.join('<br/>')}
+                        </div>` : ''}
+
+                        <div style="border: 1.5px solid #0369a1; background: #f0f9ff; padding: 8px; border-radius: 4px; font-size: 10.5px;">
+                            <b style="color: #0369a1;">RESULT:</b> <span style="white-space: pre-line;">${sim.result}</span>
+                        </div>
+
+                        <div style="display: flex; justify-content: space-between; margin-top: 24px; font-size: 10.5px; font-weight: 700;">
+                            <span>Signature of Student</span>
+                            <span>Signature of Faculty In-Charge</span>
+                        </div>
+                    </div>
+                `;
+
+                const canvas = await html2canvas(renderBox, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+                const imgData = canvas.toDataURL('image/png');
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pdfHeight = pdf.internal.pageSize.getHeight();
+                const imgProps = pdf.getImageProperties(imgData);
+                const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+                let heightLeft = imgHeight, position = 0;
+                pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+                heightLeft -= pdfHeight;
+                while (heightLeft > 0) {
+                    position = heightLeft - imgHeight;
+                    pdf.addPage();
+                    pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+                    heightLeft -= pdfHeight;
+                }
+
+                const cleanFileName = `CH3711_${exp.no.replace(/[^a-zA-Z0-9]/g, '')}_3D_Lab_Record.pdf`;
+                pdf.save(cleanFileName);
+                showToast(`Downloaded ${cleanFileName}`, 'success');
+            } catch (err) {
+                console.error(err);
+                showToast('Error generating PDF.', 'warning');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = origHtml;
+            }
+        }
+
+        // =========================================================================
+        // 16. INITIALIZE ON WINDOW LOAD
+        // =========================================================================
+        window.onload = function () {
+            updateHeaderStudentLabel();
+            renderSidebar();
+            selectExperiment('exp1');
+            animateThreeLab();
+        };
+    </script>
+</body>
+
+</html>
